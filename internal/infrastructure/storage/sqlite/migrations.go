@@ -38,7 +38,8 @@ var migrations = []migration{
 			`CREATE INDEX IF NOT EXISTS idx_mem_topic ON memories(topic_key, project, scope)`,
 			`CREATE INDEX IF NOT EXISTS idx_mem_created ON memories(created_at DESC)`,
 			`CREATE VIRTUAL TABLE IF NOT EXISTS memories_fts USING fts5(
-				title, what, why, location, learned, tags
+				title, what, why, location, learned, tags,
+				content='memories', content_rowid='id'
 			)`,
 			`CREATE TRIGGER IF NOT EXISTS mem_fts_insert AFTER INSERT ON memories BEGIN
 				INSERT INTO memories_fts(rowid, title, what, why, location, learned, tags)
