@@ -1,0 +1,35 @@
+# Binaries
+cortex
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary
+*.test
+
+# Output
+*.out
+
+# Go workspace
+go.work
+go.work.sum
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Coverage
+coverage.html
+coverage.out
+
+# Database (local dev)
+*.db
+*.db-shm
+*.db-wal
