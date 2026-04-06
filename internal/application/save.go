@@ -4,22 +4,25 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/sherlook22/cortex/internal/domain"
 )
 
 // SaveMemoryRequest holds the input for the SaveMemory use case.
 type SaveMemoryRequest struct {
-	Title    string
-	Type     string
-	Project  string
-	Scope    string
-	What     string
-	Why      string
-	Location string
-	Learned  string
-	Tags     []string
-	TopicKey string
+	Title     string
+	Type      string
+	Project   string
+	Scope     string
+	What      string
+	Why       string
+	Location  string
+	Learned   string
+	Tags      []string
+	TopicKey  string
+	SessionID string
+	Source    string
 }
 
 // SaveMemoryUseCase handles persisting a new memory.
@@ -43,17 +46,24 @@ func (uc *SaveMemoryUseCase) Execute(ctx context.Context, req SaveMemoryRequest)
 		scope = domain.ScopeProject
 	}
 
+	sessionID := req.SessionID
+	if sessionID == "" {
+		sessionID = generateSessionID()
+	}
+
 	memory := &domain.Memory{
-		Title:    strings.TrimSpace(req.Title),
-		Type:     domain.MemoryType(req.Type),
-		Project:  strings.ToLower(strings.TrimSpace(req.Project)),
-		Scope:    scope,
-		What:     strings.TrimSpace(req.What),
-		Why:      strings.TrimSpace(req.Why),
-		Location: strings.TrimSpace(req.Location),
-		Learned:  strings.TrimSpace(req.Learned),
-		Tags:     normalizeTags(req.Tags),
-		TopicKey: normalizeTopicKey(req.TopicKey),
+		Title:     strings.TrimSpace(req.Title),
+		Type:      domain.MemoryType(req.Type),
+		Project:   strings.ToLower(strings.TrimSpace(req.Project)),
+		Scope:     scope,
+		What:      strings.TrimSpace(req.What),
+		Why:       strings.TrimSpace(req.Why),
+		Location:  strings.TrimSpace(req.Location),
+		Learned:   strings.TrimSpace(req.Learned),
+		Tags:      normalizeTags(req.Tags),
+		TopicKey:  normalizeTopicKey(req.TopicKey),
+		SessionID: sessionID,
+		Source:    req.Source,
 	}
 
 	id, err := uc.repo.Save(ctx, memory)
@@ -106,6 +116,10 @@ func normalizeTags(tags []string) []string {
 		}
 	}
 	return normalized
+}
+
+func generateSessionID() string {
+	return fmt.Sprintf("manual-%d", time.Now().UnixMilli())
 }
 
 func normalizeTopicKey(key string) string {

@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/sherlook22/cortex/internal/domain"
@@ -86,6 +87,19 @@ func TestSearchMemoryUseCase_Execute(t *testing.T) {
 			args:       func() SearchMemoryRequest { return SearchMemoryRequest{Text: "auth", Field: "foobar"} },
 			assert: func(t *testing.T, results []domain.SearchResult, err error) {
 				assert.ErrorIs(t, err, domain.ErrInvalidField)
+			},
+		},
+		{
+			name: "propagates repo error",
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
+				m.EXPECT().Search(mock.Anything, mock.Anything).Return(nil, errors.New("db error"))
+				return m
+			},
+			args: func() SearchMemoryRequest { return SearchMemoryRequest{Text: "auth"} },
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "db error")
 			},
 		},
 	}

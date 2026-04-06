@@ -2,6 +2,7 @@ package application
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	"github.com/sherlook22/cortex/internal/domain"
@@ -57,6 +58,19 @@ func TestSaveMemoryUseCase_Execute(t *testing.T) {
 			assert: func(t *testing.T, id int64, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, int64(1), id)
+			},
+		},
+		{
+			name: "propagates repo error",
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
+				m.EXPECT().Save(mock.Anything, mock.Anything).Return(int64(0), errors.New("db error"))
+				return m
+			},
+			args: func() SaveMemoryRequest { return validReq },
+			assert: func(t *testing.T, id int64, err error) {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), "db error")
 			},
 		},
 		{

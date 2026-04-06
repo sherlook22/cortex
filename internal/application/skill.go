@@ -36,7 +36,8 @@ func (uc *GenerateSkillUseCase) Execute() string {
 	sb.WriteString("- `--learned` (required): What was learned\n")
 	sb.WriteString("- `--scope`: project (default) | personal\n")
 	sb.WriteString("- `--tags`: Comma-separated tags\n")
-	sb.WriteString("- `--topic-key`: Stable key for upserts (e.g. architecture/auth). Same key updates existing memory instead of creating new.\n\n")
+	sb.WriteString("- `--topic-key`: Stable key for upserts (e.g. architecture/auth). Same key updates existing memory instead of creating new.\n")
+	sb.WriteString("- `--session`: Session ID (auto-generated if omitted)\n\n")
 
 	sb.WriteString("### cortex search <query>\n")
 	sb.WriteString("Full-text search across all memory fields.\n")
@@ -45,6 +46,7 @@ func (uc *GenerateSkillUseCase) Execute() string {
 	sb.WriteString("- `--project`: Filter by project\n")
 	sb.WriteString("- `--scope`: Filter by scope\n")
 	sb.WriteString("- `--field`: Search in specific field (title, what, why, location, learned, tags)\n")
+	sb.WriteString("- `--session`: Filter by session ID\n")
 	sb.WriteString("- `--limit`: Max results (default 10)\n\n")
 
 	sb.WriteString("### cortex get <id>\n")
@@ -68,6 +70,7 @@ func (uc *GenerateSkillUseCase) Execute() string {
 	sb.WriteString("### cortex context\n")
 	sb.WriteString("Get recent memories formatted as readable context.\n")
 	sb.WriteString("- `--project`: Filter by project\n")
+	sb.WriteString("- `--session`: Filter by session ID\n")
 	sb.WriteString("- `--limit`: Max memories (default 20)\n\n")
 
 	sb.WriteString("### cortex stats\n")
@@ -83,6 +86,36 @@ func (uc *GenerateSkillUseCase) Execute() string {
 	sb.WriteString("Import memories from a JSON file.\n")
 	sb.WriteString("- `--file` (required): Input file\n\n")
 
+	sb.WriteString("### cortex session\n")
+	sb.WriteString("Manage agent sessions.\n\n")
+
+	sb.WriteString("#### cortex session start\n")
+	sb.WriteString("Create or reopen a session. Idempotent.\n")
+	sb.WriteString("- `--id` (required): Session ID\n")
+	sb.WriteString("- `--project` (required): Project name\n")
+	sb.WriteString("- `--directory`: Working directory\n\n")
+
+	sb.WriteString("#### cortex session end\n")
+	sb.WriteString("Close a session with a summary.\n")
+	sb.WriteString("- `--id` (required): Session ID\n")
+	sb.WriteString("- `--summary`: Session summary\n\n")
+
+	sb.WriteString("#### cortex session list\n")
+	sb.WriteString("List recent sessions.\n")
+	sb.WriteString("- `--project`: Filter by project\n")
+	sb.WriteString("- `--limit`: Max results (default 10)\n\n")
+
+	sb.WriteString("#### cortex session get <id>\n")
+	sb.WriteString("Get session details.\n\n")
+
+	sb.WriteString("### cortex capture\n")
+	sb.WriteString("Capture learnings from raw text via stdin.\n")
+	sb.WriteString("- `--project` (required): Project name\n")
+	sb.WriteString("- `--session`: Session ID (auto-generated if omitted)\n")
+	sb.WriteString("- `--source`: Origin (default: manual). Use 'subagent' for subagent output.\n")
+	sb.WriteString("\nExample:\n")
+	sb.WriteString("```\necho \"subagent output...\" | cortex capture --project myapp --source subagent\n```\n\n")
+
 	sb.WriteString("## Global Flags\n\n")
 	sb.WriteString("- `--output-json`: Output in JSON format (useful for scripting)\n\n")
 
@@ -97,6 +130,12 @@ func (uc *GenerateSkillUseCase) Execute() string {
 	sb.WriteString("- Before starting work that might overlap with past work\n")
 	sb.WriteString("- When the user asks to recall something from a previous session\n")
 	sb.WriteString("- When working on a topic you have no context on\n\n")
+
+	sb.WriteString("## Session Protocol\n\n")
+	sb.WriteString("1. **On start**: Run `cortex session start --id SESSION --project PROJECT --directory DIR`\n")
+	sb.WriteString("2. **During work**: Use `--session SESSION` with `cortex save` to associate memories\n")
+	sb.WriteString("3. **On end**: Save a session summary, then `cortex session end --id SESSION --summary \"...\"`\n")
+	sb.WriteString("4. **After compaction**: Save compacted summary, run `cortex context --project PROJECT --session SESSION`, continue\n\n")
 
 	sb.WriteString("## Topic Key Convention\n\n")
 	sb.WriteString("Use `{category}/{topic}` format for evolving knowledge:\n")

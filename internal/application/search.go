@@ -9,12 +9,13 @@ import (
 
 // SearchMemoryRequest holds the input for the SearchMemory use case.
 type SearchMemoryRequest struct {
-	Text    string
-	Type    string
-	Project string
-	Scope   string
-	Field   string
-	Limit   int
+	Text      string
+	Type      string
+	Project   string
+	Scope     string
+	Field     string
+	SessionID string
+	Limit     int
 }
 
 // SearchMemoryUseCase handles searching memories.
@@ -49,12 +50,13 @@ func (uc *SearchMemoryUseCase) Execute(ctx context.Context, req SearchMemoryRequ
 	}
 
 	query := domain.SearchQuery{
-		Text:    req.Text,
-		Type:    domain.MemoryType(req.Type),
-		Project: req.Project,
-		Scope:   domain.Scope(req.Scope),
-		Field:   req.Field,
-		Limit:   limit,
+		Text:      req.Text,
+		Type:      domain.MemoryType(req.Type),
+		Project:   req.Project,
+		Scope:     domain.Scope(req.Scope),
+		Field:     req.Field,
+		SessionID: req.SessionID,
+		Limit:     limit,
 	}
 
 	results, err := uc.repo.Search(ctx, query)

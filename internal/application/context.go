@@ -10,8 +10,9 @@ import (
 
 // GetContextRequest holds the input for the GetContext use case.
 type GetContextRequest struct {
-	Project string
-	Limit   int
+	Project   string
+	SessionID string
+	Limit     int
 }
 
 // GetContextUseCase retrieves recent memories formatted as context.
@@ -31,7 +32,7 @@ func (uc *GetContextUseCase) Execute(ctx context.Context, req GetContextRequest)
 		limit = 20
 	}
 
-	memories, err := uc.repo.GetRecent(ctx, req.Project, limit)
+	memories, err := uc.repo.GetRecent(ctx, req.Project, req.SessionID, limit)
 	if err != nil {
 		return "", fmt.Errorf("getting recent memories: %w", err)
 	}
