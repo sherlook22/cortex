@@ -14,11 +14,27 @@ Key design decisions:
 
 ## Installation
 
+### Quick install (no Go required)
+
+```bash
+curl -sSL https://raw.githubusercontent.com/sherlook22/cortex/main/scripts/install.sh | sh
+```
+
+Detects your OS and architecture, downloads the pre-built binary, and installs it to `/usr/local/bin`.
+
+### Install a specific version
+
+```bash
+curl -sSL https://raw.githubusercontent.com/sherlook22/cortex/main/scripts/install.sh | sh -s v0.1.0
+```
+
+### With Go
+
 ```bash
 go install github.com/sherlook22/cortex/cmd/cortex@latest
 ```
 
-Or build from source:
+### From source
 
 ```bash
 git clone https://github.com/sherlook22/cortex.git
