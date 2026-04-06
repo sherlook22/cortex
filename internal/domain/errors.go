@@ -35,4 +35,13 @@ var (
 
 	// ErrInvalidField is returned when an unrecognized search field is provided.
 	ErrInvalidField = errors.New("invalid field: valid fields are title, what, why, location, learned, tags")
+
+	// ErrSessionNotFound is returned when a session with the given ID does not exist.
+	ErrSessionNotFound = errors.New("session not found")
+
+	// ErrEmptySessionID is returned when a session ID is empty.
+	ErrEmptySessionID = errors.New("session id is required")
+
+	// ErrEmptyCaptureInput is returned when capture receives empty input.
+	ErrEmptyCaptureInput = errors.New("capture input is empty")
 )

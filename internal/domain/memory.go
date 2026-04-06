@@ -81,18 +81,21 @@ type Memory struct {
 	Learned   string
 	Tags      []string
 	TopicKey  string
+	SessionID string
+	Source    string
 	CreatedAt time.Time
 	UpdatedAt time.Time
 }
 
 // SearchQuery defines parameters for searching memories.
 type SearchQuery struct {
-	Text    string
-	Type    MemoryType
-	Project string
-	Scope   Scope
-	Field   string
-	Limit   int
+	Text      string
+	Type      MemoryType
+	Project   string
+	Scope     Scope
+	Field     string
+	SessionID string
+	Limit     int
 }
 
 // SearchResult wraps a memory with its relevance score.

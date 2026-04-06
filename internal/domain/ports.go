@@ -22,8 +22,8 @@ type MemoryRepository interface {
 	// Delete permanently removes a memory by its ID.
 	Delete(ctx context.Context, id int64) error
 
-	// GetRecent returns the most recent memories, optionally filtered by project.
-	GetRecent(ctx context.Context, project string, limit int) ([]Memory, error)
+	// GetRecent returns the most recent memories, optionally filtered by project and session.
+	GetRecent(ctx context.Context, project string, sessionID string, limit int) ([]Memory, error)
 
 	// GetStats returns aggregate statistics, optionally filtered by project.
 	GetStats(ctx context.Context, project string) (*Stats, error)
@@ -36,4 +36,21 @@ type MemoryRepository interface {
 
 	// SaveImport persists an imported memory, preserving its original timestamps.
 	SaveImport(ctx context.Context, memory *Memory) (int64, error)
+}
+
+// SessionRepository defines the port for session persistence.
+type SessionRepository interface {
+	// CreateSession persists a new session. Idempotent: if a session with the
+	// same ID already exists, it returns without error.
+	CreateSession(ctx context.Context, session *Session) error
+
+	// EndSession closes a session by setting its status to completed and
+	// storing the summary.
+	EndSession(ctx context.Context, id string, summary string) error
+
+	// GetSession retrieves a single session by its ID.
+	GetSession(ctx context.Context, id string) (*Session, error)
+
+	// ListSessions returns recent sessions, optionally filtered by project.
+	ListSessions(ctx context.Context, project string, limit int) ([]Session, error)
 }
