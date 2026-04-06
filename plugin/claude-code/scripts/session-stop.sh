@@ -2,10 +2,11 @@
 set -euo pipefail
 
 # Session stop hook for Claude Code.
-# The Memory Protocol instructs the agent to save a session summary before
-# ending, so this hook simply closes the session record.
+# Reads hook input from stdin and closes the session record.
 
-SESSION_ID="${SESSION_ID:-}"
+# Parse JSON input from stdin.
+INPUT=$(cat)
+SESSION_ID=$(echo "$INPUT" | grep -oP '"session_id"\s*:\s*"\K[^"]*' 2>/dev/null || true)
 
 if [ -n "$SESSION_ID" ]; then
   cortex session end --id "$SESSION_ID" 2>/dev/null || true

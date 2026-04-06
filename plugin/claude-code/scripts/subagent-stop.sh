@@ -2,14 +2,16 @@
 set -euo pipefail
 
 # Subagent stop hook for Claude Code.
-# Captures subagent output for passive learning extraction.
-
-CWD="${CWD:-$(pwd)}"
-PROJECT=$(basename "$CWD")
-SESSION_ID="${SESSION_ID:-}"
+# Reads hook input from stdin, captures subagent output for passive learning extraction.
 
 # Read hook input from stdin (JSON with session_id, cwd, stdout fields).
 INPUT=$(cat)
+
+# Extract fields from JSON input.
+SESSION_ID=$(echo "$INPUT" | grep -oP '"session_id"\s*:\s*"\K[^"]*' 2>/dev/null || true)
+CWD=$(echo "$INPUT" | grep -oP '"cwd"\s*:\s*"\K[^"]*' 2>/dev/null || true)
+CWD="${CWD:-$(pwd)}"
+PROJECT=$(basename "$CWD")
 
 # Extract stdout from JSON input (use jq if available, fallback to grep).
 if command -v jq > /dev/null 2>&1; then
