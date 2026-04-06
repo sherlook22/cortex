@@ -21,203 +21,305 @@ func TestSaveMemoryUseCase_Execute(t *testing.T) {
 		Learned:  "Always use parameterized queries",
 	}
 
-	tests := []struct {
-		name      string
-		req       SaveMemoryRequest
-		mockSetup func(*mocks.MockMemoryRepository)
-		wantID    int64
-		wantErr   error
+	testCases := []struct {
+		name       string
+		setupMocks func() *mocks.MockMemoryRepository
+		args       func() SaveMemoryRequest
+		assert     func(t *testing.T, id int64, err error)
 	}{
 		{
 			name: "saves valid memory",
-			req:  validReq,
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().Save(mock.Anything, mock.AnythingOfType("*domain.Memory")).Return(int64(1), nil)
+				return m
 			},
-			wantID:  1,
-			wantErr: nil,
+			args: func() SaveMemoryRequest { return validReq },
+			assert: func(t *testing.T, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, int64(1), id)
+			},
 		},
 		{
 			name: "normalizes project to lowercase",
-			req: func() SaveMemoryRequest {
-				r := validReq
-				r.Project = "  MyApp  "
-				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().Save(mock.Anything, mock.MatchedBy(func(mem *domain.Memory) bool {
 					return mem.Project == "myapp"
 				})).Return(int64(1), nil)
+				return m
 			},
-			wantID:  1,
-			wantErr: nil,
+			args: func() SaveMemoryRequest {
+				r := validReq
+				r.Project = "  MyApp  "
+				return r
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, int64(1), id)
+			},
 		},
 		{
 			name: "deduplicates tags",
-			req: func() SaveMemoryRequest {
-				r := validReq
-				r.Tags = []string{"auth", "AUTH", "security", "auth"}
-				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().Save(mock.Anything, mock.MatchedBy(func(mem *domain.Memory) bool {
 					return len(mem.Tags) == 2 && mem.Tags[0] == "auth" && mem.Tags[1] == "security"
 				})).Return(int64(1), nil)
+				return m
 			},
-			wantID:  1,
-			wantErr: nil,
+			args: func() SaveMemoryRequest {
+				r := validReq
+				r.Tags = []string{"auth", "AUTH", "security", "auth"}
+				return r
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, int64(1), id)
+			},
 		},
 		{
 			name: "defaults scope to project",
-			req:  validReq,
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().Save(mock.Anything, mock.MatchedBy(func(mem *domain.Memory) bool {
 					return mem.Scope == domain.ScopeProject
 				})).Return(int64(1), nil)
+				return m
 			},
-			wantID:  1,
-			wantErr: nil,
+			args: func() SaveMemoryRequest { return validReq },
+			assert: func(t *testing.T, id int64, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, int64(1), id)
+			},
 		},
 		{
-			name: "rejects empty title",
-			req: func() SaveMemoryRequest {
+			name:       "rejects empty title",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Title = ""
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrEmptyTitle,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrEmptyTitle)
+			},
 		},
 		{
-			name: "rejects empty project",
-			req: func() SaveMemoryRequest {
+			name:       "rejects empty project",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Project = ""
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrEmptyProject,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrEmptyProject)
+			},
 		},
 		{
-			name: "rejects invalid type",
-			req: func() SaveMemoryRequest {
+			name:       "rejects invalid type",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Type = "invalid"
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrInvalidMemoryType,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrInvalidMemoryType)
+			},
 		},
 		{
-			name: "rejects invalid scope",
-			req: func() SaveMemoryRequest {
+			name:       "rejects invalid scope",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Scope = "global"
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrInvalidScope,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrInvalidScope)
+			},
 		},
 		{
-			name: "rejects empty what",
-			req: func() SaveMemoryRequest {
+			name:       "rejects empty what",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.What = "  "
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrEmptyWhat,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrEmptyWhat)
+			},
 		},
 		{
-			name: "rejects empty why",
-			req: func() SaveMemoryRequest {
+			name:       "rejects empty why",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Why = ""
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrEmptyWhy,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrEmptyWhy)
+			},
 		},
 		{
-			name: "rejects empty location",
-			req: func() SaveMemoryRequest {
+			name:       "rejects empty location",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Location = ""
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrEmptyLocation,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrEmptyLocation)
+			},
 		},
 		{
-			name: "rejects empty learned",
-			req: func() SaveMemoryRequest {
+			name:       "rejects empty learned",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args: func() SaveMemoryRequest {
 				r := validReq
 				r.Learned = ""
 				return r
-			}(),
-			mockSetup: func(m *mocks.MockMemoryRepository) {},
-			wantErr:   domain.ErrEmptyLearned,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrEmptyLearned)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := mocks.NewMockMemoryRepository(t)
-			tt.mockSetup(repo)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setupMocks()
+			req := tc.args()
 
 			uc := NewSaveMemoryUseCase(repo)
-			id, err := uc.Execute(context.Background(), tt.req)
+			id, err := uc.Execute(context.Background(), req)
 
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantID, id)
+			tc.assert(t, id, err)
+			repo.AssertExpectations(t)
 		})
 	}
 }
 
 func TestNormalizeTags(t *testing.T) {
-	tests := []struct {
-		name string
-		tags []string
-		want []string
+	testCases := []struct {
+		name   string
+		args   func() []string
+		assert func(t *testing.T, result []string)
 	}{
-		{name: "nil input", tags: nil, want: nil},
-		{name: "empty input", tags: []string{}, want: nil},
-		{name: "normalizes to lowercase", tags: []string{"Auth", "DB"}, want: []string{"auth", "db"}},
-		{name: "removes duplicates", tags: []string{"auth", "auth", "db"}, want: []string{"auth", "db"}},
-		{name: "trims spaces", tags: []string{" auth ", "  db"}, want: []string{"auth", "db"}},
-		{name: "skips empty strings", tags: []string{"auth", "", "  ", "db"}, want: []string{"auth", "db"}},
+		{
+			name: "nil input",
+			args: func() []string { return nil },
+			assert: func(t *testing.T, result []string) {
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "empty input",
+			args: func() []string { return []string{} },
+			assert: func(t *testing.T, result []string) {
+				assert.Nil(t, result)
+			},
+		},
+		{
+			name: "normalizes to lowercase",
+			args: func() []string { return []string{"Auth", "DB"} },
+			assert: func(t *testing.T, result []string) {
+				expected := []string{"auth", "db"}
+				assert.Equal(t, expected, result)
+			},
+		},
+		{
+			name: "removes duplicates",
+			args: func() []string { return []string{"auth", "auth", "db"} },
+			assert: func(t *testing.T, result []string) {
+				expected := []string{"auth", "db"}
+				assert.Equal(t, expected, result)
+			},
+		},
+		{
+			name: "trims spaces",
+			args: func() []string { return []string{" auth ", "  db"} },
+			assert: func(t *testing.T, result []string) {
+				expected := []string{"auth", "db"}
+				assert.Equal(t, expected, result)
+			},
+		},
+		{
+			name: "skips empty strings",
+			args: func() []string { return []string{"auth", "", "  ", "db"} },
+			assert: func(t *testing.T, result []string) {
+				expected := []string{"auth", "db"}
+				assert.Equal(t, expected, result)
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := normalizeTags(tt.tags)
-			assert.Equal(t, tt.want, got)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			tags := tc.args()
+
+			result := normalizeTags(tags)
+
+			tc.assert(t, result)
 		})
 	}
 }
 
 func TestNormalizeTopicKey(t *testing.T) {
-	tests := []struct {
-		name  string
-		input string
-		want  string
+	testCases := []struct {
+		name   string
+		args   func() string
+		assert func(t *testing.T, result string)
 	}{
-		{name: "lowercase", input: "Architecture/Auth", want: "architecture/auth"},
-		{name: "collapse spaces", input: "bug  fix  auth", want: "bug-fix-auth"},
-		{name: "trim", input: "  auth model  ", want: "auth-model"},
-		{name: "empty", input: "", want: ""},
-		{name: "truncate at 120", input: string(make([]byte, 200)), want: string(make([]byte, 120))},
+		{
+			name: "lowercase",
+			args: func() string { return "Architecture/Auth" },
+			assert: func(t *testing.T, result string) {
+				assert.Equal(t, "architecture/auth", result)
+			},
+		},
+		{
+			name: "collapse spaces",
+			args: func() string { return "bug  fix  auth" },
+			assert: func(t *testing.T, result string) {
+				assert.Equal(t, "bug-fix-auth", result)
+			},
+		},
+		{
+			name: "trim",
+			args: func() string { return "  auth model  " },
+			assert: func(t *testing.T, result string) {
+				assert.Equal(t, "auth-model", result)
+			},
+		},
+		{
+			name: "empty",
+			args: func() string { return "" },
+			assert: func(t *testing.T, result string) {
+				assert.Empty(t, result)
+			},
+		},
+		{
+			name: "truncate at 120",
+			args: func() string { return string(make([]byte, 200)) },
+			assert: func(t *testing.T, result string) {
+				assert.Len(t, result, 120)
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := normalizeTopicKey(tt.input)
-			assert.Equal(t, tt.want, got)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := tc.args()
+
+			result := normalizeTopicKey(input)
+
+			tc.assert(t, result)
 		})
 	}
 }

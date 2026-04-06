@@ -1,151 +1,225 @@
 package sqlite
 
 import (
+	"database/sql"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestRunMigrations(t *testing.T) {
-	tests := []struct {
-		name            string
-		expectedVersion int
-		wantErr         bool
+func TestMigrations(t *testing.T) {
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *sql.DB
+		assert func(t *testing.T, db *sql.DB)
 	}{
 		{
-			name:            "applies all migrations to fresh database",
-			expectedVersion: currentVersion,
-			wantErr:         false,
+			name: "applies all migrations to fresh database",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			assert: func(t *testing.T, db *sql.DB) {
+				version, err := getUserVersion(db)
+				require.NoError(t, err)
+				assert.Equal(t, currentVersion, version)
+			},
+		},
+		{
+			name: "migrations are idempotent",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				err = runMigrations(db)
+				require.NoError(t, err)
+				return db
+			},
+			assert: func(t *testing.T, db *sql.DB) {
+				version, err := getUserVersion(db)
+				require.NoError(t, err)
+				assert.Equal(t, currentVersion, version)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			db, err := OpenInMemory()
-			if err != nil {
-				t.Fatalf("OpenInMemory() error = %v", err)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := tc.setup(t)
 			defer db.Close()
 
-			version, err := getUserVersion(db)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("getUserVersion() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if version != tt.expectedVersion {
-				t.Errorf("getUserVersion() = %d, want %d", version, tt.expectedVersion)
-			}
+			tc.assert(t, db)
 		})
 	}
 }
 
-func TestRunMigrations_Idempotent(t *testing.T) {
-	db, err := OpenInMemory()
-	if err != nil {
-		t.Fatalf("first OpenInMemory() error = %v", err)
-	}
-
-	// Running migrations again should be a no-op.
-	err = runMigrations(db)
-	if err != nil {
-		t.Fatalf("second runMigrations() error = %v", err)
-	}
-
-	version, err := getUserVersion(db)
-	if err != nil {
-		t.Fatalf("getUserVersion() error = %v", err)
-	}
-	if version != currentVersion {
-		t.Errorf("getUserVersion() = %d, want %d", version, currentVersion)
-	}
-	db.Close()
-}
-
 func TestSchema_TablesExist(t *testing.T) {
-	db, err := OpenInMemory()
-	if err != nil {
-		t.Fatalf("OpenInMemory() error = %v", err)
-	}
-	defer db.Close()
+	expectedTables := []string{"memories", "memories_fts"}
 
-	tables := []struct {
-		name     string
-		query    string
-		wantRows bool
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *sql.DB
+		args   func() string
+		assert func(t *testing.T, db *sql.DB, table string)
 	}{
 		{
-			name:     "memories table exists",
-			query:    "SELECT name FROM sqlite_master WHERE type='table' AND name='memories'",
-			wantRows: true,
+			name: "memories table exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return expectedTables[0] },
+			assert: func(t *testing.T, db *sql.DB, table string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, table, name)
+			},
 		},
 		{
-			name:     "memories_fts virtual table exists",
-			query:    "SELECT name FROM sqlite_master WHERE type='table' AND name='memories_fts'",
-			wantRows: true,
+			name: "memories_fts virtual table exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return expectedTables[1] },
+			assert: func(t *testing.T, db *sql.DB, table string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, table, name)
+			},
 		},
 	}
 
-	for _, tt := range tables {
-		t.Run(tt.name, func(t *testing.T) {
-			rows, err := db.Query(tt.query)
-			if err != nil {
-				t.Fatalf("query error: %v", err)
-			}
-			defer rows.Close()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := tc.setup(t)
+			defer db.Close()
 
-			hasRows := rows.Next()
-			if hasRows != tt.wantRows {
-				t.Errorf("table check: got rows=%v, want %v", hasRows, tt.wantRows)
-			}
+			table := tc.args()
+
+			tc.assert(t, db, table)
 		})
 	}
 }
 
 func TestSchema_TriggersExist(t *testing.T) {
-	db, err := OpenInMemory()
-	if err != nil {
-		t.Fatalf("OpenInMemory() error = %v", err)
+	expectedTriggers := []string{"mem_fts_insert", "mem_fts_delete", "mem_fts_update"}
+
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *sql.DB
+		args   func() string
+		assert func(t *testing.T, db *sql.DB, trigger string)
+	}{
+		{
+			name: "mem_fts_insert trigger exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return expectedTriggers[0] },
+			assert: func(t *testing.T, db *sql.DB, trigger string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='trigger' AND name=?", trigger).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, trigger, name)
+			},
+		},
+		{
+			name: "mem_fts_delete trigger exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return expectedTriggers[1] },
+			assert: func(t *testing.T, db *sql.DB, trigger string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='trigger' AND name=?", trigger).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, trigger, name)
+			},
+		},
+		{
+			name: "mem_fts_update trigger exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return expectedTriggers[2] },
+			assert: func(t *testing.T, db *sql.DB, trigger string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='trigger' AND name=?", trigger).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, trigger, name)
+			},
+		},
 	}
-	defer db.Close()
 
-	triggers := []string{"mem_fts_insert", "mem_fts_delete", "mem_fts_update"}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := tc.setup(t)
+			defer db.Close()
 
-	for _, trigger := range triggers {
-		t.Run(trigger, func(t *testing.T) {
-			var name string
-			err := db.QueryRow(
-				"SELECT name FROM sqlite_master WHERE type='trigger' AND name=?",
-				trigger,
-			).Scan(&name)
-			if err != nil {
-				t.Errorf("trigger %q not found: %v", trigger, err)
-			}
+			trigger := tc.args()
+
+			tc.assert(t, db, trigger)
 		})
 	}
 }
 
 func TestSchema_IndexesExist(t *testing.T) {
-	db, err := OpenInMemory()
-	if err != nil {
-		t.Fatalf("OpenInMemory() error = %v", err)
-	}
-	defer db.Close()
-
-	indexes := []string{
-		"idx_mem_project",
-		"idx_mem_type",
-		"idx_mem_scope",
-		"idx_mem_topic",
-		"idx_mem_created",
+	expectedIndexes := []string{
+		"idx_mem_project", "idx_mem_type", "idx_mem_scope",
+		"idx_mem_topic", "idx_mem_created",
 	}
 
-	for _, idx := range indexes {
-		t.Run(idx, func(t *testing.T) {
-			var name string
-			err := db.QueryRow(
-				"SELECT name FROM sqlite_master WHERE type='index' AND name=?",
-				idx,
-			).Scan(&name)
-			if err != nil {
-				t.Errorf("index %q not found: %v", idx, err)
-			}
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *sql.DB
+		args   func() string
+		assert func(t *testing.T, db *sql.DB, index string)
+	}{}
+
+	for _, idx := range expectedIndexes {
+		idx := idx
+		testCases = append(testCases, struct {
+			name   string
+			setup  func(t *testing.T) *sql.DB
+			args   func() string
+			assert func(t *testing.T, db *sql.DB, index string)
+		}{
+			name: idx + " exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return idx },
+			assert: func(t *testing.T, db *sql.DB, index string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='index' AND name=?", index).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, index, name)
+			},
+		})
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			db := tc.setup(t)
+			defer db.Close()
+
+			index := tc.args()
+
+			tc.assert(t, db, index)
 		})
 	}
 }

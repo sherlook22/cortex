@@ -11,43 +11,48 @@ import (
 )
 
 func TestDeleteMemoryUseCase_Execute(t *testing.T) {
-	tests := []struct {
-		name      string
-		id        int64
-		mockSetup func(*mocks.MockMemoryRepository)
-		wantErr   error
+	testCases := []struct {
+		name       string
+		setupMocks func() *mocks.MockMemoryRepository
+		args       func() int64
+		assert     func(t *testing.T, err error)
 	}{
 		{
 			name: "deletes existing memory",
-			id:   1,
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().Delete(mock.Anything, int64(1)).Return(nil)
+				return m
 			},
-			wantErr: nil,
+			args: func() int64 { return 1 },
+			assert: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 		},
 		{
 			name: "returns error for missing memory",
-			id:   999,
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().Delete(mock.Anything, int64(999)).Return(domain.ErrMemoryNotFound)
+				return m
 			},
-			wantErr: domain.ErrMemoryNotFound,
+			args: func() int64 { return 999 },
+			assert: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, domain.ErrMemoryNotFound)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := mocks.NewMockMemoryRepository(t)
-			tt.mockSetup(repo)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setupMocks()
+			id := tc.args()
 
 			uc := NewDeleteMemoryUseCase(repo)
-			err := uc.Execute(context.Background(), tt.id)
+			err := uc.Execute(context.Background(), id)
 
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-			assert.NoError(t, err)
+			tc.assert(t, err)
+			repo.AssertExpectations(t)
 		})
 	}
 }

@@ -11,49 +11,53 @@ import (
 )
 
 func TestGetMemoryUseCase_Execute(t *testing.T) {
-	tests := []struct {
-		name      string
-		id        int64
-		mockSetup func(*mocks.MockMemoryRepository)
-		wantTitle string
-		wantErr   error
+	expectedTitle := "Found memory"
+
+	testCases := []struct {
+		name       string
+		setupMocks func() *mocks.MockMemoryRepository
+		args       func() int64
+		assert     func(t *testing.T, memory *domain.Memory, err error)
 	}{
 		{
 			name: "retrieves existing memory",
-			id:   1,
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().GetByID(mock.Anything, int64(1)).Return(&domain.Memory{
-					ID:    1,
-					Title: "Found memory",
+					ID: 1, Title: expectedTitle,
 				}, nil)
+				return m
 			},
-			wantTitle: "Found memory",
+			args: func() int64 { return 1 },
+			assert: func(t *testing.T, memory *domain.Memory, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, expectedTitle, memory.Title)
+			},
 		},
 		{
 			name: "returns error for missing memory",
-			id:   999,
-			mockSetup: func(m *mocks.MockMemoryRepository) {
+			setupMocks: func() *mocks.MockMemoryRepository {
+				m := mocks.NewMockMemoryRepository(t)
 				m.EXPECT().GetByID(mock.Anything, int64(999)).Return(nil, domain.ErrMemoryNotFound)
+				return m
 			},
-			wantErr: domain.ErrMemoryNotFound,
+			args: func() int64 { return 999 },
+			assert: func(t *testing.T, memory *domain.Memory, err error) {
+				assert.ErrorIs(t, err, domain.ErrMemoryNotFound)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := mocks.NewMockMemoryRepository(t)
-			tt.mockSetup(repo)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setupMocks()
+			id := tc.args()
 
 			uc := NewGetMemoryUseCase(repo)
-			got, err := uc.Execute(context.Background(), tt.id)
+			memory, err := uc.Execute(context.Background(), id)
 
-			if tt.wantErr != nil {
-				assert.ErrorIs(t, err, tt.wantErr)
-				return
-			}
-
-			assert.NoError(t, err)
-			assert.Equal(t, tt.wantTitle, got.Title)
+			tc.assert(t, memory, err)
+			repo.AssertExpectations(t)
 		})
 	}
 }

@@ -1,54 +1,150 @@
 package domain
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
 
 func TestIsValidMemoryType(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected bool
+	testCases := []struct {
+		name   string
+		args   func() string
+		assert func(t *testing.T, result bool)
 	}{
-		{name: "valid bugfix", input: "bugfix", expected: true},
-		{name: "valid decision", input: "decision", expected: true},
-		{name: "valid architecture", input: "architecture", expected: true},
-		{name: "valid discovery", input: "discovery", expected: true},
-		{name: "valid pattern", input: "pattern", expected: true},
-		{name: "valid config", input: "config", expected: true},
-		{name: "invalid empty", input: "", expected: false},
-		{name: "invalid random", input: "foobar", expected: false},
-		{name: "invalid uppercase", input: "Bugfix", expected: false},
-		{name: "invalid with spaces", input: "bug fix", expected: false},
+		{
+			name: "valid bugfix",
+			args: func() string { return "bugfix" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "valid decision",
+			args: func() string { return "decision" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "valid architecture",
+			args: func() string { return "architecture" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "valid discovery",
+			args: func() string { return "discovery" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "valid pattern",
+			args: func() string { return "pattern" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "valid config",
+			args: func() string { return "config" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "invalid empty",
+			args: func() string { return "" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
+		{
+			name: "invalid random",
+			args: func() string { return "foobar" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
+		{
+			name: "invalid uppercase",
+			args: func() string { return "Bugfix" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
+		{
+			name: "invalid with spaces",
+			args: func() string { return "bug fix" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsValidMemoryType(tt.input)
-			if got != tt.expected {
-				t.Errorf("IsValidMemoryType(%q) = %v, want %v", tt.input, got, tt.expected)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := tc.args()
+
+			result := IsValidMemoryType(input)
+
+			tc.assert(t, result)
 		})
 	}
 }
 
 func TestIsValidScope(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected bool
+	testCases := []struct {
+		name   string
+		args   func() string
+		assert func(t *testing.T, result bool)
 	}{
-		{name: "valid project", input: "project", expected: true},
-		{name: "valid personal", input: "personal", expected: true},
-		{name: "invalid empty", input: "", expected: false},
-		{name: "invalid random", input: "global", expected: false},
-		{name: "invalid uppercase", input: "Project", expected: false},
+		{
+			name: "valid project",
+			args: func() string { return "project" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "valid personal",
+			args: func() string { return "personal" },
+			assert: func(t *testing.T, result bool) {
+				assert.True(t, result)
+			},
+		},
+		{
+			name: "invalid empty",
+			args: func() string { return "" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
+		{
+			name: "invalid random",
+			args: func() string { return "global" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
+		{
+			name: "invalid uppercase",
+			args: func() string { return "Project" },
+			assert: func(t *testing.T, result bool) {
+				assert.False(t, result)
+			},
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := IsValidScope(tt.input)
-			if got != tt.expected {
-				t.Errorf("IsValidScope(%q) = %v, want %v", tt.input, got, tt.expected)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			input := tc.args()
+
+			result := IsValidScope(input)
+
+			tc.assert(t, result)
 		})
 	}
 }

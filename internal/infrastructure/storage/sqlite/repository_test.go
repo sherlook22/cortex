@@ -6,14 +6,14 @@ import (
 	"testing"
 
 	"github.com/sherlook22/cortex/internal/domain"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func setupTestRepo(t *testing.T) *Repository {
 	t.Helper()
 	db, err := OpenInMemory()
-	if err != nil {
-		t.Fatalf("OpenInMemory() error = %v", err)
-	}
+	require.NoError(t, err)
 	t.Cleanup(func() { db.Close() })
 	return NewRepository(db)
 }
@@ -32,489 +32,568 @@ func newTestMemory() *domain.Memory {
 }
 
 func TestRepository_Save(t *testing.T) {
-	tests := []struct {
-		name    string
-		memory  *domain.Memory
-		wantErr bool
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *Repository
+		args   func() *domain.Memory
+		assert func(t *testing.T, id int64, err error)
 	}{
 		{
-			name:    "saves a basic memory",
-			memory:  newTestMemory(),
-			wantErr: false,
+			name:  "saves a basic memory",
+			setup: func(t *testing.T) *Repository { return setupTestRepo(t) },
+			args:  func() *domain.Memory { return newTestMemory() },
+			assert: func(t *testing.T, id int64, err error) {
+				require.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+			},
 		},
 		{
-			name: "saves with tags",
-			memory: func() *domain.Memory {
+			name:  "saves with tags",
+			setup: func(t *testing.T) *Repository { return setupTestRepo(t) },
+			args: func() *domain.Memory {
 				m := newTestMemory()
 				m.Tags = []string{"auth", "security"}
 				return m
-			}(),
-			wantErr: false,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				require.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+			},
 		},
 		{
-			name: "saves with topic key",
-			memory: func() *domain.Memory {
+			name:  "saves with topic key",
+			setup: func(t *testing.T) *Repository { return setupTestRepo(t) },
+			args: func() *domain.Memory {
 				m := newTestMemory()
 				m.TopicKey = "architecture/auth-model"
 				return m
-			}(),
-			wantErr: false,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				require.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+			},
 		},
 		{
-			name: "saves with personal scope",
-			memory: func() *domain.Memory {
+			name:  "saves with personal scope",
+			setup: func(t *testing.T) *Repository { return setupTestRepo(t) },
+			args: func() *domain.Memory {
 				m := newTestMemory()
 				m.Scope = domain.ScopePersonal
 				return m
-			}(),
-			wantErr: false,
+			},
+			assert: func(t *testing.T, id int64, err error) {
+				require.NoError(t, err)
+				assert.Greater(t, id, int64(0))
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			repo := setupTestRepo(t)
-			ctx := context.Background()
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setup(t)
+			memory := tc.args()
 
-			id, err := repo.Save(ctx, tt.memory)
-			if (err != nil) != tt.wantErr {
-				t.Fatalf("Save() error = %v, wantErr %v", err, tt.wantErr)
-			}
-			if !tt.wantErr && id <= 0 {
-				t.Errorf("Save() returned id = %d, want > 0", id)
-			}
+			id, err := repo.Save(context.Background(), memory)
+
+			tc.assert(t, id, err)
 		})
 	}
 }
 
 func TestRepository_Save_TopicKeyUpsert(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
+	expectedTitle := "Updated auth decision"
+	expectedWhat := "Switched to JWT"
 
-	// Save initial memory with topic key.
-	m1 := newTestMemory()
-	m1.TopicKey = "architecture/auth"
-	id1, err := repo.Save(ctx, m1)
-	if err != nil {
-		t.Fatalf("first Save() error = %v", err)
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) (*Repository, int64)
+		args   func() *domain.Memory
+		assert func(t *testing.T, repo *Repository, originalID int64, upsertID int64, err error)
+	}{
+		{
+			name: "upserts with same topic key returns same ID and updates content",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				m := newTestMemory()
+				m.TopicKey = "architecture/auth"
+				id, err := repo.Save(context.Background(), m)
+				require.NoError(t, err)
+				return repo, id
+			},
+			args: func() *domain.Memory {
+				m := newTestMemory()
+				m.TopicKey = "architecture/auth"
+				m.Title = expectedTitle
+				m.What = expectedWhat
+				return m
+			},
+			assert: func(t *testing.T, repo *Repository, originalID int64, upsertID int64, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, originalID, upsertID)
+
+				got, err := repo.GetByID(context.Background(), originalID)
+				require.NoError(t, err)
+				assert.Equal(t, expectedTitle, got.Title)
+				assert.Equal(t, expectedWhat, got.What)
+			},
+		},
+		{
+			name: "different topic keys create different memories",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				m := newTestMemory()
+				m.TopicKey = "architecture/auth"
+				id, err := repo.Save(context.Background(), m)
+				require.NoError(t, err)
+				return repo, id
+			},
+			args: func() *domain.Memory {
+				m := newTestMemory()
+				m.TopicKey = "architecture/db"
+				return m
+			},
+			assert: func(t *testing.T, repo *Repository, originalID int64, newID int64, err error) {
+				require.NoError(t, err)
+				assert.NotEqual(t, originalID, newID)
+			},
+		},
 	}
 
-	// Save again with same topic key — should upsert.
-	m2 := newTestMemory()
-	m2.TopicKey = "architecture/auth"
-	m2.Title = "Updated auth decision"
-	m2.What = "Switched to JWT"
-	id2, err := repo.Save(ctx, m2)
-	if err != nil {
-		t.Fatalf("second Save() error = %v", err)
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo, originalID := tc.setup(t)
+			memory := tc.args()
 
-	if id1 != id2 {
-		t.Errorf("upsert returned different IDs: %d vs %d", id1, id2)
-	}
+			upsertID, err := repo.Save(context.Background(), memory)
 
-	// Verify the content was updated.
-	got, err := repo.GetByID(ctx, id1)
-	if err != nil {
-		t.Fatalf("GetByID() error = %v", err)
-	}
-	if got.Title != "Updated auth decision" {
-		t.Errorf("title = %q, want %q", got.Title, "Updated auth decision")
-	}
-	if got.What != "Switched to JWT" {
-		t.Errorf("what = %q, want %q", got.What, "Switched to JWT")
-	}
-}
-
-func TestRepository_Save_DifferentTopicKeys(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
-
-	m1 := newTestMemory()
-	m1.TopicKey = "architecture/auth"
-	id1, err := repo.Save(ctx, m1)
-	if err != nil {
-		t.Fatalf("first Save() error = %v", err)
-	}
-
-	m2 := newTestMemory()
-	m2.TopicKey = "architecture/db"
-	id2, err := repo.Save(ctx, m2)
-	if err != nil {
-		t.Fatalf("second Save() error = %v", err)
-	}
-
-	if id1 == id2 {
-		t.Error("different topic keys should create different memories")
+			tc.assert(t, repo, originalID, upsertID, err)
+		})
 	}
 }
 
 func TestRepository_GetByID(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
+	expectedTitle := "Fixed auth bug"
 
-	tests := []struct {
-		name    string
-		setup   func() int64
-		id      int64
-		wantErr error
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) (*Repository, int64)
+		assert func(t *testing.T, memory *domain.Memory, err error)
 	}{
 		{
 			name: "retrieves existing memory",
-			setup: func() int64 {
-				id, _ := repo.Save(ctx, newTestMemory())
-				return id
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				id, err := repo.Save(context.Background(), newTestMemory())
+				require.NoError(t, err)
+				return repo, id
 			},
-			wantErr: nil,
+			assert: func(t *testing.T, memory *domain.Memory, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, expectedTitle, memory.Title)
+			},
 		},
 		{
-			name:    "returns error for non-existent ID",
-			setup:   func() int64 { return 9999 },
-			wantErr: domain.ErrMemoryNotFound,
+			name: "returns error for non-existent ID",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				return repo, 9999
+			},
+			assert: func(t *testing.T, memory *domain.Memory, err error) {
+				assert.ErrorIs(t, err, domain.ErrMemoryNotFound)
+				assert.Nil(t, memory)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			id := tt.setup()
-			got, err := repo.GetByID(ctx, id)
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo, id := tc.setup(t)
 
-			if tt.wantErr != nil {
-				if err != tt.wantErr {
-					t.Fatalf("GetByID() error = %v, want %v", err, tt.wantErr)
-				}
-				return
-			}
+			memory, err := repo.GetByID(context.Background(), id)
 
-			if err != nil {
-				t.Fatalf("GetByID() error = %v", err)
-			}
-			if got.ID != id {
-				t.Errorf("ID = %d, want %d", got.ID, id)
-			}
-			if got.Title != "Fixed auth bug" {
-				t.Errorf("Title = %q, want %q", got.Title, "Fixed auth bug")
-			}
+			tc.assert(t, memory, err)
 		})
 	}
 }
 
 func TestRepository_Search(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
-
-	// Seed data.
-	memories := []*domain.Memory{
-		{
-			Title: "Fixed auth bug", Type: domain.TypeBugfix, Project: "myapp",
-			Scope: domain.ScopeProject, What: "Sanitized input", Why: "SQL injection",
-			Location: "src/db/query.go", Learned: "Use parameterized queries",
-			Tags: []string{"auth", "security"},
-		},
-		{
-			Title: "Database migration strategy", Type: domain.TypeDecision, Project: "myapp",
-			Scope: domain.ScopeProject, What: "Chose goose for migrations", Why: "Simple and reliable",
-			Location: "src/db/migrations/", Learned: "Goose supports both SQL and Go migrations",
-		},
-		{
-			Title: "Docker setup", Type: domain.TypeConfig, Project: "other-project",
-			Scope: domain.ScopeProject, What: "Added docker-compose", Why: "Local dev environment",
-			Location: "docker-compose.yml", Learned: "Use named volumes for persistence",
-		},
-	}
-	for _, m := range memories {
-		if _, err := repo.Save(ctx, m); err != nil {
-			t.Fatalf("seeding memory: %v", err)
+	seedMemories := func(t *testing.T) *Repository {
+		repo := setupTestRepo(t)
+		memories := []*domain.Memory{
+			{
+				Title: "Fixed auth bug", Type: domain.TypeBugfix, Project: "myapp",
+				Scope: domain.ScopeProject, What: "Sanitized input", Why: "SQL injection",
+				Location: "src/db/query.go", Learned: "Use parameterized queries",
+				Tags: []string{"auth", "security"},
+			},
+			{
+				Title: "Database migration strategy", Type: domain.TypeDecision, Project: "myapp",
+				Scope: domain.ScopeProject, What: "Chose goose for migrations", Why: "Simple and reliable",
+				Location: "src/db/migrations/", Learned: "Goose supports both SQL and Go migrations",
+			},
+			{
+				Title: "Docker setup", Type: domain.TypeConfig, Project: "other-project",
+				Scope: domain.ScopeProject, What: "Added docker-compose", Why: "Local dev environment",
+				Location: "docker-compose.yml", Learned: "Use named volumes for persistence",
+			},
 		}
+		for _, m := range memories {
+			_, err := repo.Save(context.Background(), m)
+			require.NoError(t, err)
+		}
+		return repo
 	}
 
-	tests := []struct {
-		name      string
-		query     domain.SearchQuery
-		wantCount int
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *Repository
+		args   func() domain.SearchQuery
+		assert func(t *testing.T, results []domain.SearchResult, err error)
 	}{
 		{
-			name:      "search by general term",
-			query:     domain.SearchQuery{Text: "auth", Limit: 10},
-			wantCount: 1,
+			name:  "search by general term",
+			setup: seedMemories,
+			args:  func() domain.SearchQuery { return domain.SearchQuery{Text: "auth", Limit: 10} },
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 		{
-			name:      "search cross-column (injection is in why, query in location)",
-			query:     domain.SearchQuery{Text: "injection", Limit: 10},
-			wantCount: 1,
+			name:  "search cross-column",
+			setup: seedMemories,
+			args:  func() domain.SearchQuery { return domain.SearchQuery{Text: "injection", Limit: 10} },
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 		{
-			name:      "search with project filter",
-			query:     domain.SearchQuery{Text: "migrations", Project: "myapp", Limit: 10},
-			wantCount: 1,
+			name:  "search with project filter",
+			setup: seedMemories,
+			args: func() domain.SearchQuery {
+				return domain.SearchQuery{Text: "migrations", Project: "myapp", Limit: 10}
+			},
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 		{
-			name:      "search with type filter",
-			query:     domain.SearchQuery{Text: "docker", Type: domain.TypeConfig, Limit: 10},
-			wantCount: 1,
+			name:  "search with type filter",
+			setup: seedMemories,
+			args: func() domain.SearchQuery {
+				return domain.SearchQuery{Text: "docker", Type: domain.TypeConfig, Limit: 10}
+			},
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 		{
-			name:      "search with no results",
-			query:     domain.SearchQuery{Text: "nonexistent", Limit: 10},
-			wantCount: 0,
+			name:  "search with no results",
+			setup: seedMemories,
+			args:  func() domain.SearchQuery { return domain.SearchQuery{Text: "nonexistent", Limit: 10} },
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Empty(t, results)
+			},
 		},
 		{
-			name:      "search by specific field (tags)",
-			query:     domain.SearchQuery{Text: "security", Field: "tags", Limit: 10},
-			wantCount: 1,
+			name:  "search by specific field tags",
+			setup: seedMemories,
+			args: func() domain.SearchQuery {
+				return domain.SearchQuery{Text: "security", Field: "tags", Limit: 10}
+			},
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 		{
-			name:      "search by specific field (location)",
-			query:     domain.SearchQuery{Text: "docker-compose", Field: "location", Limit: 10},
-			wantCount: 1,
+			name:  "search by specific field location",
+			setup: seedMemories,
+			args: func() domain.SearchQuery {
+				return domain.SearchQuery{Text: "docker-compose", Field: "location", Limit: 10}
+			},
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 		{
-			name:      "search respects limit",
-			query:     domain.SearchQuery{Text: "src", Limit: 1},
-			wantCount: 1,
+			name:  "search respects limit",
+			setup: seedMemories,
+			args:  func() domain.SearchQuery { return domain.SearchQuery{Text: "src", Limit: 1} },
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				require.NoError(t, err)
+				assert.Len(t, results, 1)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			results, err := repo.Search(ctx, tt.query)
-			if err != nil {
-				t.Fatalf("Search() error = %v", err)
-			}
-			if len(results) != tt.wantCount {
-				t.Errorf("Search() returned %d results, want %d", len(results), tt.wantCount)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setup(t)
+			query := tc.args()
+
+			results, err := repo.Search(context.Background(), query)
+
+			tc.assert(t, results, err)
 		})
 	}
 }
 
 func TestRepository_Update(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
+	expectedTitle := "Updated title"
+	expectedWhat := "Updated what"
+	expectedType := domain.TypeDecision
 
-	id, err := repo.Save(ctx, newTestMemory())
-	if err != nil {
-		t.Fatalf("Save() error = %v", err)
-	}
-
-	newTitle := "Updated title"
-	newWhat := "Updated what"
-	newType := domain.TypeDecision
-
-	tests := []struct {
-		name    string
-		id      int64
-		params  domain.UpdateParams
-		wantErr error
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) (*Repository, int64)
+		args   func(id int64) (int64, domain.UpdateParams)
+		assert func(t *testing.T, err error)
 	}{
 		{
-			name:    "update title",
-			id:      id,
-			params:  domain.UpdateParams{Title: &newTitle},
-			wantErr: nil,
+			name: "update title",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				id, err := repo.Save(context.Background(), newTestMemory())
+				require.NoError(t, err)
+				return repo, id
+			},
+			args: func(id int64) (int64, domain.UpdateParams) {
+				title := expectedTitle
+				return id, domain.UpdateParams{Title: &title}
+			},
+			assert: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
 		},
 		{
-			name:    "update multiple fields",
-			id:      id,
-			params:  domain.UpdateParams{What: &newWhat, Type: &newType},
-			wantErr: nil,
+			name: "update multiple fields",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				id, err := repo.Save(context.Background(), newTestMemory())
+				require.NoError(t, err)
+				return repo, id
+			},
+			args: func(id int64) (int64, domain.UpdateParams) {
+				what := expectedWhat
+				typ := expectedType
+				return id, domain.UpdateParams{What: &what, Type: &typ}
+			},
+			assert: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
 		},
 		{
-			name:    "update non-existent memory",
-			id:      9999,
-			params:  domain.UpdateParams{Title: &newTitle},
-			wantErr: domain.ErrMemoryNotFound,
+			name: "update non-existent memory",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				return repo, 9999
+			},
+			args: func(id int64) (int64, domain.UpdateParams) {
+				title := expectedTitle
+				return id, domain.UpdateParams{Title: &title}
+			},
+			assert: func(t *testing.T, err error) {
+				assert.ErrorIs(t, err, domain.ErrMemoryNotFound)
+			},
 		},
 		{
-			name:    "update with empty params is no-op",
-			id:      id,
-			params:  domain.UpdateParams{},
-			wantErr: nil,
+			name: "update with empty params is no-op",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				id, err := repo.Save(context.Background(), newTestMemory())
+				require.NoError(t, err)
+				return repo, id
+			},
+			args: func(id int64) (int64, domain.UpdateParams) {
+				return id, domain.UpdateParams{}
+			},
+			assert: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Update(ctx, tt.id, tt.params)
-			if err != tt.wantErr {
-				t.Errorf("Update() error = %v, want %v", err, tt.wantErr)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo, id := tc.setup(t)
+			targetID, params := tc.args(id)
+
+			err := repo.Update(context.Background(), targetID, params)
+
+			tc.assert(t, err)
 		})
-	}
-
-	// Verify final state.
-	got, err := repo.GetByID(ctx, id)
-	if err != nil {
-		t.Fatalf("GetByID() error = %v", err)
-	}
-	if got.Title != newTitle {
-		t.Errorf("Title = %q, want %q", got.Title, newTitle)
-	}
-	if got.What != newWhat {
-		t.Errorf("What = %q, want %q", got.What, newWhat)
-	}
-	if got.Type != newType {
-		t.Errorf("Type = %q, want %q", got.Type, newType)
 	}
 }
 
 func TestRepository_Delete(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
-
-	id, err := repo.Save(ctx, newTestMemory())
-	if err != nil {
-		t.Fatalf("Save() error = %v", err)
-	}
-
-	tests := []struct {
-		name    string
-		id      int64
-		wantErr error
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) (*Repository, int64)
+		assert func(t *testing.T, repo *Repository, id int64, err error)
 	}{
 		{
-			name:    "delete existing memory",
-			id:      id,
-			wantErr: nil,
+			name: "delete existing memory",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				id, err := repo.Save(context.Background(), newTestMemory())
+				require.NoError(t, err)
+				return repo, id
+			},
+			assert: func(t *testing.T, repo *Repository, id int64, err error) {
+				require.NoError(t, err)
+				_, getErr := repo.GetByID(context.Background(), id)
+				assert.ErrorIs(t, getErr, domain.ErrMemoryNotFound)
+			},
 		},
 		{
-			name:    "delete non-existent memory",
-			id:      9999,
-			wantErr: domain.ErrMemoryNotFound,
+			name: "delete non-existent memory",
+			setup: func(t *testing.T) (*Repository, int64) {
+				repo := setupTestRepo(t)
+				return repo, 9999
+			},
+			assert: func(t *testing.T, repo *Repository, id int64, err error) {
+				assert.ErrorIs(t, err, domain.ErrMemoryNotFound)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			err := repo.Delete(ctx, tt.id)
-			if err != tt.wantErr {
-				t.Errorf("Delete() error = %v, want %v", err, tt.wantErr)
-			}
-		})
-	}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo, id := tc.setup(t)
 
-	// Verify it's actually gone.
-	_, err = repo.GetByID(ctx, id)
-	if err != domain.ErrMemoryNotFound {
-		t.Errorf("memory should be deleted, got error = %v", err)
+			err := repo.Delete(context.Background(), id)
+
+			tc.assert(t, repo, id, err)
+		})
 	}
 }
 
 func TestRepository_GetRecent(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
-
-	// Save 3 memories across 2 projects.
-	for i, proj := range []string{"myapp", "myapp", "other"} {
-		m := newTestMemory()
-		m.Title = fmt.Sprintf("Memory %d", i+1)
-		m.Project = proj
-		if _, err := repo.Save(ctx, m); err != nil {
-			t.Fatalf("Save() error = %v", err)
+	seedRepo := func(t *testing.T) *Repository {
+		repo := setupTestRepo(t)
+		for i, proj := range []string{"myapp", "myapp", "other"} {
+			m := newTestMemory()
+			m.Title = fmt.Sprintf("Memory %d", i+1)
+			m.Project = proj
+			_, err := repo.Save(context.Background(), m)
+			require.NoError(t, err)
 		}
+		return repo
 	}
 
-	tests := []struct {
-		name      string
-		project   string
-		limit     int
-		wantCount int
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *Repository
+		args   func() (string, int)
+		assert func(t *testing.T, memories []domain.Memory, err error)
 	}{
 		{
-			name:      "all recent memories",
-			project:   "",
-			limit:     10,
-			wantCount: 3,
+			name:  "all recent memories",
+			setup: seedRepo,
+			args:  func() (string, int) { return "", 10 },
+			assert: func(t *testing.T, memories []domain.Memory, err error) {
+				require.NoError(t, err)
+				assert.Len(t, memories, 3)
+			},
 		},
 		{
-			name:      "filtered by project",
-			project:   "myapp",
-			limit:     10,
-			wantCount: 2,
+			name:  "filtered by project",
+			setup: seedRepo,
+			args:  func() (string, int) { return "myapp", 10 },
+			assert: func(t *testing.T, memories []domain.Memory, err error) {
+				require.NoError(t, err)
+				assert.Len(t, memories, 2)
+			},
 		},
 		{
-			name:      "respects limit",
-			project:   "",
-			limit:     1,
-			wantCount: 1,
+			name:  "respects limit",
+			setup: seedRepo,
+			args:  func() (string, int) { return "", 1 },
+			assert: func(t *testing.T, memories []domain.Memory, err error) {
+				require.NoError(t, err)
+				assert.Len(t, memories, 1)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			memories, err := repo.GetRecent(ctx, tt.project, tt.limit)
-			if err != nil {
-				t.Fatalf("GetRecent() error = %v", err)
-			}
-			if len(memories) != tt.wantCount {
-				t.Errorf("GetRecent() returned %d memories, want %d", len(memories), tt.wantCount)
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setup(t)
+			project, limit := tc.args()
+
+			memories, err := repo.GetRecent(context.Background(), project, limit)
+
+			tc.assert(t, memories, err)
 		})
 	}
 }
 
 func TestRepository_GetStats(t *testing.T) {
-	repo := setupTestRepo(t)
-	ctx := context.Background()
-
-	// Empty stats.
-	stats, err := repo.GetStats(ctx, "")
-	if err != nil {
-		t.Fatalf("GetStats() error = %v", err)
-	}
-	if stats.TotalMemories != 0 {
-		t.Errorf("empty DB: TotalMemories = %d, want 0", stats.TotalMemories)
-	}
-
-	// Seed data.
-	types := []domain.MemoryType{domain.TypeBugfix, domain.TypeBugfix, domain.TypeDecision}
-	projects := []string{"app1", "app1", "app2"}
-	for i := range types {
-		m := newTestMemory()
-		m.Type = types[i]
-		m.Project = projects[i]
-		if _, err := repo.Save(ctx, m); err != nil {
-			t.Fatalf("Save() error = %v", err)
+	seedRepo := func(t *testing.T) *Repository {
+		repo := setupTestRepo(t)
+		types := []domain.MemoryType{domain.TypeBugfix, domain.TypeBugfix, domain.TypeDecision}
+		projects := []string{"app1", "app1", "app2"}
+		for i := range types {
+			m := newTestMemory()
+			m.Type = types[i]
+			m.Project = projects[i]
+			_, err := repo.Save(context.Background(), m)
+			require.NoError(t, err)
 		}
+		return repo
 	}
 
-	tests := []struct {
-		name         string
-		project      string
-		wantTotal    int
-		wantTypes    map[domain.MemoryType]int
-		wantProjects map[string]int
+	testCases := []struct {
+		name   string
+		setup  func(t *testing.T) *Repository
+		args   func() string
+		assert func(t *testing.T, stats *domain.Stats, err error)
 	}{
 		{
-			name:         "global stats",
-			project:      "",
-			wantTotal:    3,
-			wantTypes:    map[domain.MemoryType]int{domain.TypeBugfix: 2, domain.TypeDecision: 1},
-			wantProjects: map[string]int{"app1": 2, "app2": 1},
+			name:  "empty database stats",
+			setup: func(t *testing.T) *Repository { return setupTestRepo(t) },
+			args:  func() string { return "" },
+			assert: func(t *testing.T, stats *domain.Stats, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, 0, stats.TotalMemories)
+			},
 		},
 		{
-			name:         "filtered by project",
-			project:      "app1",
-			wantTotal:    2,
-			wantTypes:    map[domain.MemoryType]int{domain.TypeBugfix: 2},
-			wantProjects: map[string]int{"app1": 2, "app2": 1}, // ByProject is always global
+			name:  "global stats",
+			setup: seedRepo,
+			args:  func() string { return "" },
+			assert: func(t *testing.T, stats *domain.Stats, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, 3, stats.TotalMemories)
+				assert.Equal(t, 2, stats.ByType[domain.TypeBugfix])
+				assert.Equal(t, 1, stats.ByType[domain.TypeDecision])
+			},
+		},
+		{
+			name:  "filtered by project",
+			setup: seedRepo,
+			args:  func() string { return "app1" },
+			assert: func(t *testing.T, stats *domain.Stats, err error) {
+				require.NoError(t, err)
+				assert.Equal(t, 2, stats.TotalMemories)
+			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			stats, err := repo.GetStats(ctx, tt.project)
-			if err != nil {
-				t.Fatalf("GetStats() error = %v", err)
-			}
-			if stats.TotalMemories != tt.wantTotal {
-				t.Errorf("TotalMemories = %d, want %d", stats.TotalMemories, tt.wantTotal)
-			}
-			for typ, want := range tt.wantTypes {
-				if got := stats.ByType[typ]; got != want {
-					t.Errorf("ByType[%s] = %d, want %d", typ, got, want)
-				}
-			}
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			repo := tc.setup(t)
+			project := tc.args()
+
+			stats, err := repo.GetStats(context.Background(), project)
+
+			tc.assert(t, stats, err)
 		})
 	}
 }
