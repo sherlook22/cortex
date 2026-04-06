@@ -55,7 +55,7 @@ func TestMigrations(t *testing.T) {
 }
 
 func TestSchema_TablesExist(t *testing.T) {
-	expectedTables := []string{"memories", "memories_fts"}
+	expectedTables := []string{"memories", "memories_fts", "sessions"}
 
 	testCases := []struct {
 		name   string
@@ -86,6 +86,21 @@ func TestSchema_TablesExist(t *testing.T) {
 				return db
 			},
 			args: func() string { return expectedTables[1] },
+			assert: func(t *testing.T, db *sql.DB, table string) {
+				var name string
+				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&name)
+				require.NoError(t, err)
+				assert.Equal(t, table, name)
+			},
+		},
+		{
+			name: "sessions table exists",
+			setup: func(t *testing.T) *sql.DB {
+				db, err := OpenInMemory()
+				require.NoError(t, err)
+				return db
+			},
+			args: func() string { return expectedTables[2] },
 			assert: func(t *testing.T, db *sql.DB, table string) {
 				var name string
 				err := db.QueryRow("SELECT name FROM sqlite_master WHERE type='table' AND name=?", table).Scan(&name)
@@ -179,6 +194,8 @@ func TestSchema_IndexesExist(t *testing.T) {
 	expectedIndexes := []string{
 		"idx_mem_project", "idx_mem_type", "idx_mem_scope",
 		"idx_mem_topic", "idx_mem_created",
+		"idx_mem_session",
+		"idx_sess_project", "idx_sess_status", "idx_sess_created",
 	}
 
 	testCases := []struct {
