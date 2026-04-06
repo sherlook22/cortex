@@ -28,6 +28,7 @@ fi
 INJECTION="## Cortex Persistent Memory — Protocol
 
 You have access to cortex, a persistent memory CLI tool. Use it proactively.
+Always inform the user when you save or search memories (e.g. "Saving this decision to memory..." or "Searching memory for...").
 
 ### WHEN TO SAVE (mandatory — not optional)
 
