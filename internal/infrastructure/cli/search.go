@@ -38,9 +38,11 @@ func newSearchCmd() *cobra.Command {
 				}
 				for _, r := range results {
 					m := r.Memory
-					fmt.Printf("[%d] %s (%s, %s, %s)\n",
-						m.ID, m.Title, m.Type, m.Project,
-						m.CreatedAt.Format("2006-01-02"))
+					meta := fmt.Sprintf("%s, %s, %s", m.Type, m.Project, m.CreatedAt.Format("2006-01-02"))
+					if m.Source != "" {
+						meta += ", " + m.Source
+					}
+					fmt.Printf("[%d] %s (%s)\n", m.ID, m.Title, meta)
 					fmt.Printf("     What: %s\n", truncate(m.What, 80))
 					fmt.Println()
 				}

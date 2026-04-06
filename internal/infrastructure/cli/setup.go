@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strings"
 
 	pluginfs "github.com/sherlook22/cortex/plugin"
@@ -195,8 +194,5 @@ func openCodeConfigDir() string {
 		return filepath.Join(xdg, "opencode")
 	}
 	home, _ := os.UserHomeDir()
-	if runtime.GOOS == "darwin" {
-		return filepath.Join(home, ".config", "opencode")
-	}
 	return filepath.Join(home, ".config", "opencode")
 }

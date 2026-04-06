@@ -45,6 +45,12 @@ func newGetCmd() *cobra.Command {
 				if len(memory.Tags) > 0 {
 					fmt.Printf("- **Tags**: %s\n", strings.Join(memory.Tags, ", "))
 				}
+				if memory.SessionID != "" {
+					fmt.Printf("- **Session**: %s\n", memory.SessionID)
+				}
+				if memory.Source != "" {
+					fmt.Printf("- **Source**: %s\n", memory.Source)
+				}
 				fmt.Println()
 				fmt.Printf("**What**: %s\n", memory.What)
 				fmt.Printf("**Why**: %s\n", memory.Why)

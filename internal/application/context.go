@@ -64,6 +64,12 @@ func formatContext(memories []domain.Memory, project string) string {
 		if len(m.Tags) > 0 {
 			sb.WriteString(fmt.Sprintf("- **Tags**: %s\n", strings.Join(m.Tags, ", ")))
 		}
+		if m.SessionID != "" {
+			sb.WriteString(fmt.Sprintf("- **Session**: %s\n", m.SessionID))
+		}
+		if m.Source != "" {
+			sb.WriteString(fmt.Sprintf("- **Source**: %s\n", m.Source))
+		}
 		sb.WriteString("\n")
 	}
 

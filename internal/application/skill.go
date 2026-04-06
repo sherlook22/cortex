@@ -37,7 +37,8 @@ func (uc *GenerateSkillUseCase) Execute() string {
 	sb.WriteString("- `--scope`: project (default) | personal\n")
 	sb.WriteString("- `--tags`: Comma-separated tags\n")
 	sb.WriteString("- `--topic-key`: Stable key for upserts (e.g. architecture/auth). Same key updates existing memory instead of creating new.\n")
-	sb.WriteString("- `--session`: Session ID (auto-generated if omitted)\n\n")
+	sb.WriteString("- `--session`: Session ID (auto-generated if omitted)\n")
+	sb.WriteString("- `--source`: Origin (e.g. manual, subagent)\n\n")
 
 	sb.WriteString("### cortex search <query>\n")
 	sb.WriteString("Full-text search across all memory fields.\n")
