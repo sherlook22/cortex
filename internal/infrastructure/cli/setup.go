@@ -32,7 +32,7 @@ func newSetupClaudeCodeCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "claude-code",
 		Short: "Install cortex plugin for Claude Code",
-		Long:  "Extracts the plugin to a temporary directory and installs it via claude plugin install.",
+		Long:  "Registers cortex as a local marketplace and installs the plugin via claude CLI.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return setupClaudeCode()
 		},
@@ -51,14 +51,20 @@ func newSetupOpenCodeCmd() *cobra.Command {
 }
 
 func setupClaudeCode() error {
-	// Extract embedded plugin to a temp directory.
-	tmpDir, err := os.MkdirTemp("", "cortex-claude-plugin-*")
+	home, err := os.UserHomeDir()
 	if err != nil {
-		return fmt.Errorf("creating temp dir: %w", err)
+		return fmt.Errorf("getting home directory: %w", err)
 	}
-	defer os.RemoveAll(tmpDir)
 
-	pluginDir := filepath.Join(tmpDir, "claude-code")
+	// Extract plugin to a permanent marketplace directory.
+	// Structure: ~/.cortex/marketplace/.claude-plugin/marketplace.json
+	//            ~/.cortex/marketplace/plugins/cortex/{plugin files}
+	marketplaceDir := filepath.Join(home, ".cortex", "marketplace")
+	pluginDir := filepath.Join(marketplaceDir, "plugins", "cortex")
+
+	// Remove old installation if present to ensure clean state.
+	os.RemoveAll(pluginDir)
+
 	if err := extractEmbeddedFS(pluginfs.ClaudeCodeFS, "claude-code", pluginDir); err != nil {
 		return fmt.Errorf("extracting plugin: %w", err)
 	}
@@ -72,13 +78,49 @@ func setupClaudeCode() error {
 		}
 	}
 
-	// Install via claude CLI.
+	// Write marketplace manifest.
+	manifestDir := filepath.Join(marketplaceDir, ".claude-plugin")
+	if err := os.MkdirAll(manifestDir, 0755); err != nil {
+		return fmt.Errorf("creating manifest dir: %w", err)
+	}
+
+	manifest := map[string]any{
+		"name":        "cortex-marketplace",
+		"description": "Cortex persistent memory plugins",
+		"owner": map[string]string{
+			"name":  "cortex",
+			"email": "cortex@local",
+		},
+		"plugins": []map[string]any{
+			{
+				"name":        "cortex",
+				"description": "Persistent memory system for AI coding agents",
+				"source":      "./plugins/cortex",
+				"category":    "productivity",
+			},
+		},
+	}
+	manifestData, _ := json.MarshalIndent(manifest, "", "  ")
+	if err := os.WriteFile(filepath.Join(manifestDir, "marketplace.json"), manifestData, 0644); err != nil {
+		return fmt.Errorf("writing marketplace manifest: %w", err)
+	}
+
+	// Find claude CLI.
 	claudeBin, err := exec.LookPath("claude")
 	if err != nil {
 		return fmt.Errorf("claude CLI not found in PATH: %w", err)
 	}
 
-	installCmd := exec.Command(claudeBin, "plugin", "install", "--plugin-dir", pluginDir)
+	// Register as local marketplace (idempotent — ignores if already added).
+	addMkt := exec.Command(claudeBin, "plugin", "marketplace", "add", marketplaceDir)
+	addMkt.Stdout = os.Stdout
+	addMkt.Stderr = os.Stderr
+	if err := addMkt.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: marketplace may already be registered: %v\n", err)
+	}
+
+	// Install the plugin from the marketplace.
+	installCmd := exec.Command(claudeBin, "plugin", "install", "cortex")
 	installCmd.Stdout = os.Stdout
 	installCmd.Stderr = os.Stderr
 	if err := installCmd.Run(); err != nil {
