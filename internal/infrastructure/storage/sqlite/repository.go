@@ -40,8 +40,8 @@ func (r *Repository) Save(ctx context.Context, memory *domain.Memory) (int64, er
 	tags := joinTags(memory.Tags)
 
 	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO memories (title, type, project, scope, what, why, location, learned, tags, topic_key)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO memories (title, type, project, scope, what, why, location, learned, tags, topic_key, session_id, source)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		memory.Title,
 		string(memory.Type),
 		memory.Project,
@@ -52,6 +52,8 @@ func (r *Repository) Save(ctx context.Context, memory *domain.Memory) (int64, er
 		memory.Learned,
 		tags,
 		nullString(memory.TopicKey),
+		memory.SessionID,
+		memory.Source,
 	)
 	if err != nil {
 		return 0, fmt.Errorf("inserting memory: %w", err)
@@ -112,7 +114,8 @@ func (r *Repository) Search(ctx context.Context, query domain.SearchQuery) ([]do
 	baseQuery := `
 		SELECT m.id, m.title, m.type, m.project, m.scope,
 		       m.what, m.why, m.location, m.learned,
-		       m.tags, m.topic_key, m.created_at, m.updated_at,
+		       m.tags, m.topic_key, m.session_id, m.source,
+		       m.created_at, m.updated_at,
 		       f.rank
 		FROM memories_fts f
 		JOIN memories m ON m.id = f.rowid
@@ -132,6 +135,10 @@ func (r *Repository) Search(ctx context.Context, query domain.SearchQuery) ([]do
 		baseQuery += " AND m.scope = ?"
 		args = append(args, string(query.Scope))
 	}
+	if query.SessionID != "" {
+		baseQuery += " AND m.session_id = ?"
+		args = append(args, query.SessionID)
+	}
 
 	baseQuery += " ORDER BY f.rank LIMIT ?"
 	args = append(args, limit)
@@ -149,7 +156,7 @@ func (r *Repository) Search(ctx context.Context, query domain.SearchQuery) ([]do
 func (r *Repository) GetByID(ctx context.Context, id int64) (*domain.Memory, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, title, type, project, scope, what, why, location, learned,
-		        tags, topic_key, created_at, updated_at
+		        tags, topic_key, session_id, source, created_at, updated_at
 		 FROM memories WHERE id = ?`, id)
 
 	m, err := scanMemory(row)
@@ -243,18 +250,27 @@ func (r *Repository) Delete(ctx context.Context, id int64) error {
 	return nil
 }
 
-// GetRecent returns the most recent memories, optionally filtered by project.
-func (r *Repository) GetRecent(ctx context.Context, project string, limit int) ([]domain.Memory, error) {
+// GetRecent returns the most recent memories, optionally filtered by project and session.
+func (r *Repository) GetRecent(ctx context.Context, project string, sessionID string, limit int) ([]domain.Memory, error) {
 	if limit <= 0 {
 		limit = 20
 	}
 
-	query := "SELECT id, title, type, project, scope, what, why, location, learned, tags, topic_key, created_at, updated_at FROM memories"
+	query := "SELECT id, title, type, project, scope, what, why, location, learned, tags, topic_key, session_id, source, created_at, updated_at FROM memories"
 	args := []any{}
+	var conditions []string
 
 	if project != "" {
-		query += " WHERE project = ?"
+		conditions = append(conditions, "project = ?")
 		args = append(args, project)
+	}
+	if sessionID != "" {
+		conditions = append(conditions, "session_id = ?")
+		args = append(args, sessionID)
+	}
+
+	if len(conditions) > 0 {
+		query += " WHERE " + strings.Join(conditions, " AND ")
 	}
 
 	query += " ORDER BY created_at DESC LIMIT ?"
@@ -354,7 +370,7 @@ func (r *Repository) GetStats(ctx context.Context, project string) (*domain.Stat
 func (r *Repository) FindByTopicKey(ctx context.Context, topicKey string, project string, scope domain.Scope) (*domain.Memory, error) {
 	row := r.db.QueryRowContext(ctx,
 		`SELECT id, title, type, project, scope, what, why, location, learned,
-		        tags, topic_key, created_at, updated_at
+		        tags, topic_key, session_id, source, created_at, updated_at
 		 FROM memories
 		 WHERE topic_key = ? AND project = ? AND scope = ?
 		 ORDER BY datetime(updated_at) DESC
@@ -373,7 +389,7 @@ func (r *Repository) FindByTopicKey(ctx context.Context, topicKey string, projec
 
 // GetAll returns all memories, optionally filtered by project.
 func (r *Repository) GetAll(ctx context.Context, project string) ([]domain.Memory, error) {
-	query := "SELECT id, title, type, project, scope, what, why, location, learned, tags, topic_key, created_at, updated_at FROM memories"
+	query := "SELECT id, title, type, project, scope, what, why, location, learned, tags, topic_key, session_id, source, created_at, updated_at FROM memories"
 	args := []any{}
 
 	if project != "" {
@@ -397,8 +413,8 @@ func (r *Repository) SaveImport(ctx context.Context, memory *domain.Memory) (int
 	tags := joinTags(memory.Tags)
 
 	result, err := r.db.ExecContext(ctx,
-		`INSERT INTO memories (title, type, project, scope, what, why, location, learned, tags, topic_key, created_at, updated_at)
-		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		`INSERT INTO memories (title, type, project, scope, what, why, location, learned, tags, topic_key, session_id, source, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
 		memory.Title,
 		string(memory.Type),
 		memory.Project,
@@ -409,6 +425,8 @@ func (r *Repository) SaveImport(ctx context.Context, memory *domain.Memory) (int
 		memory.Learned,
 		tags,
 		nullString(memory.TopicKey),
+		memory.SessionID,
+		memory.Source,
 		memory.CreatedAt.Format("2006-01-02 15:04:05"),
 		memory.UpdatedAt.Format("2006-01-02 15:04:05"),
 	)
@@ -439,7 +457,8 @@ func scanMemory(s scannable) (*domain.Memory, error) {
 	err := s.Scan(
 		&m.ID, &m.Title, &memType, &m.Project, &scope,
 		&m.What, &m.Why, &m.Location, &m.Learned,
-		&tags, &topicKey, &createdAt, &updatedAt,
+		&tags, &topicKey, &m.SessionID, &m.Source,
+		&createdAt, &updatedAt,
 	)
 	if err != nil {
 		return nil, err
@@ -481,7 +500,8 @@ func scanSearchResults(rows *sql.Rows) ([]domain.SearchResult, error) {
 		err := rows.Scan(
 			&m.ID, &m.Title, &memType, &m.Project, &scope,
 			&m.What, &m.Why, &m.Location, &m.Learned,
-			&tags, &topicKey, &createdAt, &updatedAt,
+			&tags, &topicKey, &m.SessionID, &m.Source,
+			&createdAt, &updatedAt,
 			&rank,
 		)
 		if err != nil {

@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-const currentVersion = 1
+const currentVersion = 2
 
 // migration represents a schema migration step.
 type migration struct {
@@ -55,6 +55,26 @@ var migrations = []migration{
 				INSERT INTO memories_fts(rowid, title, what, why, location, learned, tags)
 				VALUES (new.id, new.title, new.what, new.why, new.location, new.learned, new.tags);
 			END`,
+		},
+	},
+	{
+		version: 2,
+		statements: []string{
+			`CREATE TABLE IF NOT EXISTS sessions (
+				id         TEXT PRIMARY KEY,
+				project    TEXT NOT NULL,
+				directory  TEXT NOT NULL DEFAULT '',
+				status     TEXT NOT NULL DEFAULT 'active',
+				summary    TEXT NOT NULL DEFAULT '',
+				created_at TEXT NOT NULL DEFAULT (datetime('now')),
+				updated_at TEXT NOT NULL DEFAULT (datetime('now'))
+			)`,
+			`CREATE INDEX IF NOT EXISTS idx_sess_project ON sessions(project)`,
+			`CREATE INDEX IF NOT EXISTS idx_sess_status ON sessions(status)`,
+			`CREATE INDEX IF NOT EXISTS idx_sess_created ON sessions(created_at DESC)`,
+			`ALTER TABLE memories ADD COLUMN session_id TEXT NOT NULL DEFAULT ''`,
+			`ALTER TABLE memories ADD COLUMN source TEXT NOT NULL DEFAULT ''`,
+			`CREATE INDEX IF NOT EXISTS idx_mem_session ON memories(session_id)`,
 		},
 	},
 }

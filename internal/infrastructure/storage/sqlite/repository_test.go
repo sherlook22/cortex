@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/sherlook22/cortex/internal/domain"
 	"github.com/stretchr/testify/assert"
@@ -481,6 +482,9 @@ func TestRepository_GetRecent(t *testing.T) {
 			m := newTestMemory()
 			m.Title = fmt.Sprintf("Memory %d", i+1)
 			m.Project = proj
+			if i == 0 {
+				m.SessionID = "sess-1"
+			}
 			_, err := repo.Save(context.Background(), m)
 			require.NoError(t, err)
 		}
@@ -490,13 +494,13 @@ func TestRepository_GetRecent(t *testing.T) {
 	testCases := []struct {
 		name   string
 		setup  func(t *testing.T) *Repository
-		args   func() (string, int)
+		args   func() (string, string, int)
 		assert func(t *testing.T, memories []domain.Memory, err error)
 	}{
 		{
 			name:  "all recent memories",
 			setup: seedRepo,
-			args:  func() (string, int) { return "", 10 },
+			args:  func() (string, string, int) { return "", "", 10 },
 			assert: func(t *testing.T, memories []domain.Memory, err error) {
 				require.NoError(t, err)
 				assert.Len(t, memories, 3)
@@ -505,16 +509,26 @@ func TestRepository_GetRecent(t *testing.T) {
 		{
 			name:  "filtered by project",
 			setup: seedRepo,
-			args:  func() (string, int) { return "myapp", 10 },
+			args:  func() (string, string, int) { return "myapp", "", 10 },
 			assert: func(t *testing.T, memories []domain.Memory, err error) {
 				require.NoError(t, err)
 				assert.Len(t, memories, 2)
 			},
 		},
 		{
+			name:  "filtered by session",
+			setup: seedRepo,
+			args:  func() (string, string, int) { return "", "sess-1", 10 },
+			assert: func(t *testing.T, memories []domain.Memory, err error) {
+				require.NoError(t, err)
+				assert.Len(t, memories, 1)
+				assert.Equal(t, "sess-1", memories[0].SessionID)
+			},
+		},
+		{
 			name:  "respects limit",
 			setup: seedRepo,
-			args:  func() (string, int) { return "", 1 },
+			args:  func() (string, string, int) { return "", "", 1 },
 			assert: func(t *testing.T, memories []domain.Memory, err error) {
 				require.NoError(t, err)
 				assert.Len(t, memories, 1)
@@ -525,9 +539,9 @@ func TestRepository_GetRecent(t *testing.T) {
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
 			repo := tc.setup(t)
-			project, limit := tc.args()
+			project, session, limit := tc.args()
 
-			memories, err := repo.GetRecent(context.Background(), project, limit)
+			memories, err := repo.GetRecent(context.Background(), project, session, limit)
 
 			tc.assert(t, memories, err)
 		})
@@ -596,4 +610,54 @@ func TestRepository_GetStats(t *testing.T) {
 			tc.assert(t, stats, err)
 		})
 	}
+}
+
+func TestRepository_GetAll(t *testing.T) {
+	repo := setupTestRepo(t)
+
+	// Seed data.
+	for _, proj := range []string{"app1", "app1", "app2"} {
+		m := newTestMemory()
+		m.Project = proj
+		_, err := repo.Save(context.Background(), m)
+		require.NoError(t, err)
+	}
+
+	// All.
+	all, err := repo.GetAll(context.Background(), "")
+	require.NoError(t, err)
+	assert.Len(t, all, 3)
+
+	// Filtered.
+	filtered, err := repo.GetAll(context.Background(), "app1")
+	require.NoError(t, err)
+	assert.Len(t, filtered, 2)
+
+	// Empty.
+	emptyRepo := setupTestRepo(t)
+	empty, err := emptyRepo.GetAll(context.Background(), "")
+	require.NoError(t, err)
+	assert.Empty(t, empty)
+}
+
+func TestRepository_SaveImport(t *testing.T) {
+	repo := setupTestRepo(t)
+
+	m := newTestMemory()
+	m.CreatedAt = time.Date(2025, 1, 1, 0, 0, 0, 0, time.UTC)
+	m.UpdatedAt = time.Date(2025, 1, 2, 0, 0, 0, 0, time.UTC)
+	m.SessionID = "imported-sess"
+	m.Source = "import"
+
+	id, err := repo.SaveImport(context.Background(), m)
+	require.NoError(t, err)
+	assert.Greater(t, id, int64(0))
+
+	// Verify timestamps are preserved.
+	got, err := repo.GetByID(context.Background(), id)
+	require.NoError(t, err)
+	assert.Equal(t, "2025-01-01", got.CreatedAt.Format("2006-01-02"))
+	assert.Equal(t, "2025-01-02", got.UpdatedAt.Format("2006-01-02"))
+	assert.Equal(t, "imported-sess", got.SessionID)
+	assert.Equal(t, "import", got.Source)
 }
