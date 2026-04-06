@@ -11,9 +11,9 @@ CWD=$(echo "$INPUT" | grep -oP '"cwd"\s*:\s*"\K[^"]*' 2>/dev/null || true)
 CWD="${CWD:-$(pwd)}"
 PROJECT=$(basename "$CWD")
 
-# Ensure session exists (may have been lost during compaction).
+# Ensure session exists (may have been lost during compaction). Suppress all output.
 if [ -n "$SESSION_ID" ]; then
-  cortex session start --id "$SESSION_ID" --project "$PROJECT" --directory "$CWD" 2>/dev/null || true
+  cortex session start --id "$SESSION_ID" --project "$PROJECT" --directory "$CWD" >/dev/null 2>&1 || true
 fi
 
 # Fetch context (session-specific if available, otherwise project-wide).

@@ -11,9 +11,9 @@ CWD=$(echo "$INPUT" | grep -oP '"cwd"\s*:\s*"\K[^"]*' 2>/dev/null || true)
 CWD="${CWD:-$(pwd)}"
 PROJECT=$(basename "$CWD")
 
-# Start session (idempotent).
+# Start session (idempotent). Suppress all output.
 if [ -n "$SESSION_ID" ]; then
-  cortex session start --id "$SESSION_ID" --project "$PROJECT" --directory "$CWD" 2>/dev/null || true
+  cortex session start --id "$SESSION_ID" --project "$PROJECT" --directory "$CWD" >/dev/null 2>&1 || true
 fi
 
 # Build memory context.
