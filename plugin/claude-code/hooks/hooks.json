@@ -7,31 +7,31 @@
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-start.sh",
-            "timeout": 10000,
-            "description": "Loading cortex memory..."
+            "timeout": 10,
+            "statusMessage": "Loading cortex memory..."
           }
         ]
-      },
+      }
+    ],
+    "PostCompact": [
       {
-        "matcher": "compact",
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/post-compaction.sh",
-            "timeout": 10000,
-            "description": "Recovering cortex context after compaction..."
+            "timeout": 10,
+            "statusMessage": "Recovering cortex context after compaction..."
           }
         ]
       }
     ],
     "SubagentStop": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/subagent-stop.sh",
-            "timeout": 10000,
+            "timeout": 10,
             "async": true
           }
         ]
@@ -39,12 +39,11 @@
     ],
     "Stop": [
       {
-        "matcher": "",
         "hooks": [
           {
             "type": "command",
             "command": "${CLAUDE_PLUGIN_ROOT}/scripts/session-stop.sh",
-            "timeout": 5000,
+            "timeout": 5,
             "async": true
           }
         ]

@@ -4,10 +4,23 @@ set -euo pipefail
 # Session start hook for Claude Code.
 # Reads hook input from stdin, creates a session, injects Memory Protocol + context.
 
-# Parse JSON input from stdin.
+# --- Dependencies ---
+# Require jq for reliable JSON parsing.
+if ! command -v jq > /dev/null 2>&1; then
+  echo "cortex plugin: jq is required but not found. Install it: https://jqlang.github.io/jq/" >&2
+  exit 0
+fi
+
+# Require python3 for JSON escaping output.
+if ! command -v python3 > /dev/null 2>&1; then
+  echo "cortex plugin: python3 is required but not found." >&2
+  exit 0
+fi
+
+# --- Parse JSON input from stdin ---
 INPUT=$(cat)
-SESSION_ID=$(echo "$INPUT" | grep -oP '"session_id"\s*:\s*"\K[^"]*' 2>/dev/null || true)
-CWD=$(echo "$INPUT" | grep -oP '"cwd"\s*:\s*"\K[^"]*' 2>/dev/null || true)
+SESSION_ID=$(echo "$INPUT" | jq -r '.session_id // empty')
+CWD=$(echo "$INPUT" | jq -r '.cwd // empty')
 CWD="${CWD:-$(pwd)}"
 PROJECT=$(basename "$CWD")
 
@@ -16,8 +29,12 @@ if [ -n "$SESSION_ID" ]; then
   cortex session start --id "$SESSION_ID" --project "$PROJECT" --directory "$CWD" >/dev/null 2>&1 || true
 fi
 
-# Build memory context.
-CONTEXT=$(cortex context --project "$PROJECT" 2>/dev/null || true)
+# Build memory context (include session-scoped context on resume).
+if [ -n "$SESSION_ID" ]; then
+  CONTEXT=$(cortex context --project "$PROJECT" --session "$SESSION_ID" 2>/dev/null || true)
+else
+  CONTEXT=$(cortex context --project "$PROJECT" 2>/dev/null || true)
+fi
 
 # Build the full injection: Memory Protocol + previous context.
 SESSION_FLAG=""
@@ -28,7 +45,7 @@ fi
 INJECTION="## Cortex Persistent Memory — Protocol
 
 You have access to cortex, a persistent memory CLI tool. Use it proactively.
-Always inform the user when you save or search memories (e.g. "Saving this decision to memory..." or "Searching memory for...").
+Always inform the user when you save or search memories (e.g. \"Saving this decision to memory...\" or \"Searching memory for...\").
 
 ### WHEN TO SAVE (mandatory — not optional)
 
@@ -82,7 +99,7 @@ ${CONTEXT}"
 fi
 
 # Output as hookSpecificOutput JSON for Claude Code.
-ESCAPED=$(echo "$INJECTION" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))" 2>/dev/null || echo '""')
+ESCAPED=$(echo "$INJECTION" | python3 -c "import sys,json; print(json.dumps(sys.stdin.read()))")
 cat <<HOOK_JSON
 {
   "hookSpecificOutput": {
