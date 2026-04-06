@@ -1,8 +1,13 @@
 package cli
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/spf13/cobra"
 )
+
+var outputJSON bool
 
 func newRootCmd(version string) *cobra.Command {
 	cmd := &cobra.Command{
@@ -12,10 +17,33 @@ func newRootCmd(version string) *cobra.Command {
 		Version: version,
 	}
 
+	cmd.PersistentFlags().BoolVar(&outputJSON, "output-json", false, "Output in JSON format")
+
+	cmd.AddCommand(
+		newSaveCmd(),
+		newSearchCmd(),
+		newGetCmd(),
+		newUpdateCmd(),
+		newDeleteCmd(),
+		newContextCmd(),
+		newStatsCmd(),
+		newVersionCmd(version),
+	)
+
 	return cmd
 }
 
 // Execute runs the root command.
 func Execute(version string) error {
 	return newRootCmd(version).Execute()
+}
+
+// initDeps creates dependencies, printing an error and exiting on failure.
+func initDeps() *deps {
+	d, err := newDeps()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error initializing: %v\n", err)
+		os.Exit(1)
+	}
+	return d
 }
