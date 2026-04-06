@@ -25,7 +25,7 @@ cat <<PROTOCOL
 
 CRITICAL INSTRUCTION POST-COMPACTION:
 FIRST ACTION REQUIRED: Save the compacted summary above as a memory using:
-  cortex save --title "Session summary (compacted)" --type decision --project ${PROJECT} --what "..." --why "Compaction recovery" --where "..." --learned "..."
+  cortex save --title "Session summary (compacted)" --type decision --project ${PROJECT} --session ${SESSION_ID} --what "..." --why "Compaction recovery" --where "..." --learned "..."
 
 Then continue working.
 

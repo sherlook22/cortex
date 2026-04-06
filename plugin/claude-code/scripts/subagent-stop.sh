@@ -11,8 +11,12 @@ SESSION_ID="${SESSION_ID:-}"
 # Read hook input from stdin (JSON with session_id, cwd, stdout fields).
 INPUT=$(cat)
 
-# Extract stdout from JSON input.
-STDOUT=$(echo "$INPUT" | jq -r '.stdout // empty' 2>/dev/null || true)
+# Extract stdout from JSON input (use jq if available, fallback to grep).
+if command -v jq > /dev/null 2>&1; then
+  STDOUT=$(echo "$INPUT" | jq -r '.stdout // empty' 2>/dev/null || true)
+else
+  STDOUT=$(echo "$INPUT" | grep -oP '"stdout"\s*:\s*"\K[^"]*' 2>/dev/null || true)
+fi
 
 # Exit early if no output.
 if [ -z "$STDOUT" ] || [ ${#STDOUT} -lt 50 ]; then
