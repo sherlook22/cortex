@@ -30,4 +30,10 @@ type MemoryRepository interface {
 
 	// FindByTopicKey finds a memory by its topic key within a project and scope.
 	FindByTopicKey(ctx context.Context, topicKey string, project string, scope Scope) (*Memory, error)
+
+	// GetAll returns all memories, optionally filtered by project. Used for export.
+	GetAll(ctx context.Context, project string) ([]Memory, error)
+
+	// SaveImport persists an imported memory, preserving its original timestamps.
+	SaveImport(ctx context.Context, memory *Memory) (int64, error)
 }

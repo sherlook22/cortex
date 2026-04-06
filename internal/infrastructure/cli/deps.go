@@ -18,6 +18,8 @@ type deps struct {
 	del     *application.DeleteMemoryUseCase
 	context *application.GetContextUseCase
 	stats   *application.GetStatsUseCase
+	export  *application.ExportUseCase
+	imp     *application.ImportUseCase
 }
 
 // newDeps opens the database and wires all dependencies.
@@ -39,6 +41,8 @@ func newDeps() (*deps, error) {
 		del:     application.NewDeleteMemoryUseCase(repo),
 		context: application.NewGetContextUseCase(repo),
 		stats:   application.NewGetStatsUseCase(repo),
+		export:  application.NewExportUseCase(repo),
+		imp:     application.NewImportUseCase(repo),
 	}, nil
 }
 

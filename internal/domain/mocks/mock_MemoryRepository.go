@@ -130,6 +130,65 @@ func (_c *MockMemoryRepository_FindByTopicKey_Call) RunAndReturn(run func(contex
 	return _c
 }
 
+// GetAll provides a mock function with given fields: ctx, project
+func (_m *MockMemoryRepository) GetAll(ctx context.Context, project string) ([]domain.Memory, error) {
+	ret := _m.Called(ctx, project)
+
+	if len(ret) == 0 {
+		panic("no return value specified for GetAll")
+	}
+
+	var r0 []domain.Memory
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, string) ([]domain.Memory, error)); ok {
+		return rf(ctx, project)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, string) []domain.Memory); ok {
+		r0 = rf(ctx, project)
+	} else {
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).([]domain.Memory)
+		}
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, string) error); ok {
+		r1 = rf(ctx, project)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockMemoryRepository_GetAll_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'GetAll'
+type MockMemoryRepository_GetAll_Call struct {
+	*mock.Call
+}
+
+// GetAll is a helper method to define mock.On call
+//   - ctx context.Context
+//   - project string
+func (_e *MockMemoryRepository_Expecter) GetAll(ctx interface{}, project interface{}) *MockMemoryRepository_GetAll_Call {
+	return &MockMemoryRepository_GetAll_Call{Call: _e.mock.On("GetAll", ctx, project)}
+}
+
+func (_c *MockMemoryRepository_GetAll_Call) Run(run func(ctx context.Context, project string)) *MockMemoryRepository_GetAll_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(string))
+	})
+	return _c
+}
+
+func (_c *MockMemoryRepository_GetAll_Call) Return(_a0 []domain.Memory, _a1 error) *MockMemoryRepository_GetAll_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockMemoryRepository_GetAll_Call) RunAndReturn(run func(context.Context, string) ([]domain.Memory, error)) *MockMemoryRepository_GetAll_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
 // GetByID provides a mock function with given fields: ctx, id
 func (_m *MockMemoryRepository) GetByID(ctx context.Context, id int64) (*domain.Memory, error) {
 	ret := _m.Called(ctx, id)
@@ -361,6 +420,63 @@ func (_c *MockMemoryRepository_Save_Call) Return(_a0 int64, _a1 error) *MockMemo
 }
 
 func (_c *MockMemoryRepository_Save_Call) RunAndReturn(run func(context.Context, *domain.Memory) (int64, error)) *MockMemoryRepository_Save_Call {
+	_c.Call.Return(run)
+	return _c
+}
+
+// SaveImport provides a mock function with given fields: ctx, memory
+func (_m *MockMemoryRepository) SaveImport(ctx context.Context, memory *domain.Memory) (int64, error) {
+	ret := _m.Called(ctx, memory)
+
+	if len(ret) == 0 {
+		panic("no return value specified for SaveImport")
+	}
+
+	var r0 int64
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, *domain.Memory) (int64, error)); ok {
+		return rf(ctx, memory)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, *domain.Memory) int64); ok {
+		r0 = rf(ctx, memory)
+	} else {
+		r0 = ret.Get(0).(int64)
+	}
+
+	if rf, ok := ret.Get(1).(func(context.Context, *domain.Memory) error); ok {
+		r1 = rf(ctx, memory)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
+}
+
+// MockMemoryRepository_SaveImport_Call is a *mock.Call that shadows Run/Return methods with type explicit version for method 'SaveImport'
+type MockMemoryRepository_SaveImport_Call struct {
+	*mock.Call
+}
+
+// SaveImport is a helper method to define mock.On call
+//   - ctx context.Context
+//   - memory *domain.Memory
+func (_e *MockMemoryRepository_Expecter) SaveImport(ctx interface{}, memory interface{}) *MockMemoryRepository_SaveImport_Call {
+	return &MockMemoryRepository_SaveImport_Call{Call: _e.mock.On("SaveImport", ctx, memory)}
+}
+
+func (_c *MockMemoryRepository_SaveImport_Call) Run(run func(ctx context.Context, memory *domain.Memory)) *MockMemoryRepository_SaveImport_Call {
+	_c.Call.Run(func(args mock.Arguments) {
+		run(args[0].(context.Context), args[1].(*domain.Memory))
+	})
+	return _c
+}
+
+func (_c *MockMemoryRepository_SaveImport_Call) Return(_a0 int64, _a1 error) *MockMemoryRepository_SaveImport_Call {
+	_c.Call.Return(_a0, _a1)
+	return _c
+}
+
+func (_c *MockMemoryRepository_SaveImport_Call) RunAndReturn(run func(context.Context, *domain.Memory) (int64, error)) *MockMemoryRepository_SaveImport_Call {
 	_c.Call.Return(run)
 	return _c
 }

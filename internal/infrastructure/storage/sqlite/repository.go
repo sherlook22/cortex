@@ -371,6 +371,59 @@ func (r *Repository) FindByTopicKey(ctx context.Context, topicKey string, projec
 	return m, nil
 }
 
+// GetAll returns all memories, optionally filtered by project.
+func (r *Repository) GetAll(ctx context.Context, project string) ([]domain.Memory, error) {
+	query := "SELECT id, title, type, project, scope, what, why, location, learned, tags, topic_key, created_at, updated_at FROM memories"
+	args := []any{}
+
+	if project != "" {
+		query += " WHERE project = ?"
+		args = append(args, project)
+	}
+
+	query += " ORDER BY created_at ASC"
+
+	rows, err := r.db.QueryContext(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("getting all memories: %w", err)
+	}
+	defer rows.Close()
+
+	return scanMemories(rows)
+}
+
+// SaveImport persists an imported memory, preserving original timestamps.
+func (r *Repository) SaveImport(ctx context.Context, memory *domain.Memory) (int64, error) {
+	tags := joinTags(memory.Tags)
+
+	result, err := r.db.ExecContext(ctx,
+		`INSERT INTO memories (title, type, project, scope, what, why, location, learned, tags, topic_key, created_at, updated_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+		memory.Title,
+		string(memory.Type),
+		memory.Project,
+		string(memory.Scope),
+		memory.What,
+		memory.Why,
+		memory.Location,
+		memory.Learned,
+		tags,
+		nullString(memory.TopicKey),
+		memory.CreatedAt.Format("2006-01-02 15:04:05"),
+		memory.UpdatedAt.Format("2006-01-02 15:04:05"),
+	)
+	if err != nil {
+		return 0, fmt.Errorf("importing memory: %w", err)
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("getting last insert id: %w", err)
+	}
+
+	return id, nil
+}
+
 // --- Helpers ---
 
 // scannable abstracts sql.Row and sql.Rows for reusable scanning.
