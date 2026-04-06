@@ -80,6 +80,14 @@ func TestSearchMemoryUseCase_Execute(t *testing.T) {
 				assert.ErrorIs(t, err, domain.ErrInvalidScope)
 			},
 		},
+		{
+			name:       "rejects invalid field",
+			setupMocks: func() *mocks.MockMemoryRepository { return mocks.NewMockMemoryRepository(t) },
+			args:       func() SearchMemoryRequest { return SearchMemoryRequest{Text: "auth", Field: "foobar"} },
+			assert: func(t *testing.T, results []domain.SearchResult, err error) {
+				assert.ErrorIs(t, err, domain.ErrInvalidField)
+			},
+		},
 	}
 
 	for _, tc := range testCases {

@@ -32,4 +32,7 @@ var (
 
 	// ErrEmptySearchQuery is returned when search text is empty.
 	ErrEmptySearchQuery = errors.New("search query is required")
+
+	// ErrInvalidField is returned when an unrecognized search field is provided.
+	ErrInvalidField = errors.New("invalid field: valid fields are title, what, why, location, learned, tags")
 )

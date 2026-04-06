@@ -39,6 +39,9 @@ func (uc *SearchMemoryUseCase) Execute(ctx context.Context, req SearchMemoryRequ
 	if req.Scope != "" && !domain.IsValidScope(req.Scope) {
 		return nil, domain.ErrInvalidScope
 	}
+	if req.Field != "" && !domain.IsValidSearchField(req.Field) {
+		return nil, domain.ErrInvalidField
+	}
 
 	limit := req.Limit
 	if limit <= 0 {

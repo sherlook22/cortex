@@ -55,6 +55,19 @@ func IsValidScope(s string) bool {
 	return false
 }
 
+// ValidSearchFields contains all fields that can be targeted in FTS5 search.
+var ValidSearchFields = []string{"title", "what", "why", "location", "learned", "tags"}
+
+// IsValidSearchField checks whether a string is a valid search field.
+func IsValidSearchField(f string) bool {
+	for _, valid := range ValidSearchFields {
+		if f == valid {
+			return true
+		}
+	}
+	return false
+}
+
 // Memory represents a unit of persistent knowledge.
 type Memory struct {
 	ID        int64
