@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/sherlook22/cortex/internal/domain"
-	"github.com/sherlook22/cortex/internal/domain/mocks"
+	"github.com/sherlook22/cortex/internal/tests/mocks"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )

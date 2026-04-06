@@ -1,5 +1,5 @@
 with-expecter: true
-dir: "internal/domain/mocks"
+dir: "internal/tests/mocks"
 outpkg: "mocks"
 packages:
   github.com/sherlook22/cortex/internal/domain:
