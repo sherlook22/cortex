@@ -1,7 +1,7 @@
 {
   "name": "cortex",
   "description": "Persistent memory system for AI coding agents",
-  "version": "0.1.0",
+  "version": "0.0.3",
   "author": {
     "name": "sherlook22"
   }
