@@ -248,9 +248,9 @@ func (_c *MockMemoryRepository_GetByID_Call) RunAndReturn(run func(context.Conte
 	return _c
 }
 
-// GetRecent provides a mock function with given fields: ctx, project, limit
-func (_m *MockMemoryRepository) GetRecent(ctx context.Context, project string, limit int) ([]domain.Memory, error) {
-	ret := _m.Called(ctx, project, limit)
+// GetRecent provides a mock function with given fields: ctx, project, sessionID, limit
+func (_m *MockMemoryRepository) GetRecent(ctx context.Context, project string, sessionID string, limit int) ([]domain.Memory, error) {
+	ret := _m.Called(ctx, project, sessionID, limit)
 
 	if len(ret) == 0 {
 		panic("no return value specified for GetRecent")
@@ -258,19 +258,19 @@ func (_m *MockMemoryRepository) GetRecent(ctx context.Context, project string, l
 
 	var r0 []domain.Memory
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, string, int) ([]domain.Memory, error)); ok {
-		return rf(ctx, project, limit)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int) ([]domain.Memory, error)); ok {
+		return rf(ctx, project, sessionID, limit)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, string, int) []domain.Memory); ok {
-		r0 = rf(ctx, project, limit)
+	if rf, ok := ret.Get(0).(func(context.Context, string, string, int) []domain.Memory); ok {
+		r0 = rf(ctx, project, sessionID, limit)
 	} else {
 		if ret.Get(0) != nil {
 			r0 = ret.Get(0).([]domain.Memory)
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, string, int) error); ok {
-		r1 = rf(ctx, project, limit)
+	if rf, ok := ret.Get(1).(func(context.Context, string, string, int) error); ok {
+		r1 = rf(ctx, project, sessionID, limit)
 	} else {
 		r1 = ret.Error(1)
 	}
@@ -286,14 +286,15 @@ type MockMemoryRepository_GetRecent_Call struct {
 // GetRecent is a helper method to define mock.On call
 //   - ctx context.Context
 //   - project string
+//   - sessionID string
 //   - limit int
-func (_e *MockMemoryRepository_Expecter) GetRecent(ctx interface{}, project interface{}, limit interface{}) *MockMemoryRepository_GetRecent_Call {
-	return &MockMemoryRepository_GetRecent_Call{Call: _e.mock.On("GetRecent", ctx, project, limit)}
+func (_e *MockMemoryRepository_Expecter) GetRecent(ctx interface{}, project interface{}, sessionID interface{}, limit interface{}) *MockMemoryRepository_GetRecent_Call {
+	return &MockMemoryRepository_GetRecent_Call{Call: _e.mock.On("GetRecent", ctx, project, sessionID, limit)}
 }
 
-func (_c *MockMemoryRepository_GetRecent_Call) Run(run func(ctx context.Context, project string, limit int)) *MockMemoryRepository_GetRecent_Call {
+func (_c *MockMemoryRepository_GetRecent_Call) Run(run func(ctx context.Context, project string, sessionID string, limit int)) *MockMemoryRepository_GetRecent_Call {
 	_c.Call.Run(func(args mock.Arguments) {
-		run(args[0].(context.Context), args[1].(string), args[2].(int))
+		run(args[0].(context.Context), args[1].(string), args[2].(string), args[3].(int))
 	})
 	return _c
 }
@@ -303,7 +304,7 @@ func (_c *MockMemoryRepository_GetRecent_Call) Return(_a0 []domain.Memory, _a1 e
 	return _c
 }
 
-func (_c *MockMemoryRepository_GetRecent_Call) RunAndReturn(run func(context.Context, string, int) ([]domain.Memory, error)) *MockMemoryRepository_GetRecent_Call {
+func (_c *MockMemoryRepository_GetRecent_Call) RunAndReturn(run func(context.Context, string, string, int) ([]domain.Memory, error)) *MockMemoryRepository_GetRecent_Call {
 	_c.Call.Return(run)
 	return _c
 }

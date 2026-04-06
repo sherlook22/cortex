@@ -6,3 +6,4 @@ packages:
   github.com/sherlook22/cortex/internal/domain:
     interfaces:
       MemoryRepository:
+      SessionRepository:
