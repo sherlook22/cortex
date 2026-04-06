@@ -53,6 +53,7 @@ func newSearchCmd() *cobra.Command {
 	cmd.Flags().StringVar(&req.Project, "project", "", "Filter by project")
 	cmd.Flags().StringVar(&req.Scope, "scope", "", "Filter by scope")
 	cmd.Flags().StringVar(&req.Field, "field", "", "Search in specific field (title, what, why, location, learned, tags)")
+	cmd.Flags().StringVar(&req.SessionID, "session", "", "Filter by session ID")
 	cmd.Flags().IntVar(&req.Limit, "limit", 10, "Maximum results")
 
 	return cmd

@@ -44,6 +44,7 @@ func newContextCmd() *cobra.Command {
 	}
 
 	cmd.Flags().StringVar(&req.Project, "project", "", "Filter by project")
+	cmd.Flags().StringVar(&req.SessionID, "session", "", "Filter by session ID")
 	cmd.Flags().IntVar(&req.Limit, "limit", 20, "Maximum memories to include")
 
 	return cmd

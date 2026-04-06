@@ -10,16 +10,21 @@ import (
 
 // deps holds all use cases, wired to a single database connection.
 type deps struct {
-	db      *sql.DB
-	save    *application.SaveMemoryUseCase
-	search  *application.SearchMemoryUseCase
-	get     *application.GetMemoryUseCase
-	update  *application.UpdateMemoryUseCase
-	del     *application.DeleteMemoryUseCase
-	context *application.GetContextUseCase
-	stats   *application.GetStatsUseCase
-	export  *application.ExportUseCase
-	imp     *application.ImportUseCase
+	db           *sql.DB
+	save         *application.SaveMemoryUseCase
+	search       *application.SearchMemoryUseCase
+	get          *application.GetMemoryUseCase
+	update       *application.UpdateMemoryUseCase
+	del          *application.DeleteMemoryUseCase
+	context      *application.GetContextUseCase
+	stats        *application.GetStatsUseCase
+	export       *application.ExportUseCase
+	imp          *application.ImportUseCase
+	capture      *application.CaptureUseCase
+	sessionStart *application.StartSessionUseCase
+	sessionEnd   *application.EndSessionUseCase
+	sessionList  *application.ListSessionsUseCase
+	sessionGet   *application.GetSessionUseCase
 }
 
 // newDeps opens the database and wires all dependencies.
@@ -30,19 +35,25 @@ func newDeps() (*deps, error) {
 		return nil, fmt.Errorf("opening database: %w", err)
 	}
 
-	repo := sqlite.NewRepository(db)
+	memRepo := sqlite.NewRepository(db)
+	sessRepo := sqlite.NewSessionRepository(db)
 
 	return &deps{
-		db:      db,
-		save:    application.NewSaveMemoryUseCase(repo),
-		search:  application.NewSearchMemoryUseCase(repo),
-		get:     application.NewGetMemoryUseCase(repo),
-		update:  application.NewUpdateMemoryUseCase(repo),
-		del:     application.NewDeleteMemoryUseCase(repo),
-		context: application.NewGetContextUseCase(repo),
-		stats:   application.NewGetStatsUseCase(repo),
-		export:  application.NewExportUseCase(repo),
-		imp:     application.NewImportUseCase(repo),
+		db:           db,
+		save:         application.NewSaveMemoryUseCase(memRepo),
+		search:       application.NewSearchMemoryUseCase(memRepo),
+		get:          application.NewGetMemoryUseCase(memRepo),
+		update:       application.NewUpdateMemoryUseCase(memRepo),
+		del:          application.NewDeleteMemoryUseCase(memRepo),
+		context:      application.NewGetContextUseCase(memRepo),
+		stats:        application.NewGetStatsUseCase(memRepo),
+		export:       application.NewExportUseCase(memRepo),
+		imp:          application.NewImportUseCase(memRepo),
+		capture:      application.NewCaptureUseCase(memRepo),
+		sessionStart: application.NewStartSessionUseCase(sessRepo),
+		sessionEnd:   application.NewEndSessionUseCase(sessRepo),
+		sessionList:  application.NewListSessionsUseCase(sessRepo),
+		sessionGet:   application.NewGetSessionUseCase(sessRepo),
 	}, nil
 }
 

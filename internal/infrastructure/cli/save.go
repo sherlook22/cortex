@@ -50,6 +50,7 @@ func newSaveCmd() *cobra.Command {
 	cmd.Flags().StringVar(&req.Learned, "learned", "", "What was learned (required)")
 	cmd.Flags().StringVar(&tagsStr, "tags", "", "Comma-separated tags")
 	cmd.Flags().StringVar(&req.TopicKey, "topic-key", "", "Stable key for upserts (e.g. architecture/auth)")
+	cmd.Flags().StringVar(&req.SessionID, "session", "", "Session ID (auto-generated if omitted)")
 
 	cmd.MarkFlagRequired("title")
 	cmd.MarkFlagRequired("type")
