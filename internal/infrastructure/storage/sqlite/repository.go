@@ -74,7 +74,7 @@ func (r *Repository) upsertByTopicKey(ctx context.Context, id int64, memory *dom
 	_, err := r.db.ExecContext(ctx,
 		`UPDATE memories
 		 SET title = ?, type = ?, what = ?, why = ?, location = ?, learned = ?,
-		     tags = ?, topic_key = ?, updated_at = datetime('now')
+		     tags = ?, topic_key = ?, session_id = ?, source = ?, updated_at = datetime('now')
 		 WHERE id = ?`,
 		memory.Title,
 		string(memory.Type),
@@ -84,6 +84,8 @@ func (r *Repository) upsertByTopicKey(ctx context.Context, id int64, memory *dom
 		memory.Learned,
 		tags,
 		nullString(memory.TopicKey),
+		memory.SessionID,
+		memory.Source,
 		id,
 	)
 	if err != nil {
